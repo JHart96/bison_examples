@@ -8,7 +8,7 @@ data {
 }
 
 parameters {
-  vector[M] log_p; // Logit social preferences for each dyad.
+  vector[M] log_p; // Logit edge weights for each dyad.
   vector[L] beta_loc; // Parameters for location effects.
   real<lower=0> loc_sigma; // Hyperparameter for location effect adaptive prior standard deviation.
 }

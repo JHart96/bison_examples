@@ -4,14 +4,19 @@ output:
   rmarkdown::github_document
 ---
 
-This is a short notebook describing how to convert group-by-individual matrices to the long format used by social preference models.
+This is a short notebook describing how to convert group-by-individual matrices to the long format used by BISON, and a brief demonstration of how the model can be fitted.
+
+```{r}
+library(dplyr)
+library(rstan)
+```
 
 ## Simulate some data
 
 For the example, simulate some random GBI data.
 
 ```{r}
-obs <- t(sapply(1:20, function(x) rbinom(8, 1, 0.3)))
+obs <- t(sapply(1:20, function(x) rbinom(8, 1, runif(1, min=0.2, max=0.4))))
 obs
 ```
 
@@ -25,7 +30,7 @@ for (obs_id in 1:nrow(obs)) {
   for (i in which(obs[obs_id, ] == 1)) {
     for (j in 1:ncol(obs)) {
       if (i != j) {
-        # Swap i and j if necessary to make sure node_1 < node_2, not essential but makes things a bit easier.
+        # Swap i and j if necessary to make sure node_1 < node_2, not essential but makes things a bit easier when assigning dyad IDs.
         if (i < j) {
           node_1 <- i
           node_2 <- j
@@ -38,5 +43,47 @@ for (obs_id in 1:nrow(obs)) {
     }
   }
 }
-df
+head(df)
 ```
+
+## Prepare dataframe for Stan model
+
+Add dyad IDs to the dataframe and convert observation (or group) IDs to integers for indexing.
+
+```{r}
+df <- df %>%
+  group_by(node_1, node_2) %>%
+  mutate(dyad_id=cur_group_id()) %>%
+  mutate(obs_id=as.integer(obs_id))
+head(df)
+```
+
+Prepare data list for model.
+
+```{r}
+model_data <- list(
+  N=nrow(df), # Number of observations
+  M=length(unique(df$dyad_id)), # Number of dyads
+  G=nrow(obs), # Number of groupings
+  dyad_ids=df$dyad_id, # Vector of dyad IDs corresponding to each observation
+  group_ids=df$obs_id, # Vector of group IDs corresponding to each observation
+  event=df$social_event # Vector of binary values (0/1, presence/absence) corresponding to each observation
+)
+```
+
+Compile and run model.
+
+```{r, warning=FALSE, message=FALSE, results='hide'}
+model <- stan_model("../models/group_model.stan")
+```
+
+```{r}
+fit <- sampling(model, model_data, cores=4)
+```
+
+Do a quick visualisation of the parameter values.
+
+```{r}
+plot(fit, pars="logit_p")
+```
+The rest of the analysis can proceed in the same way as the other analyses.
