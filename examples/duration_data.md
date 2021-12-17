@@ -1,12 +1,12 @@
 Duration Data Example
 ================
 
-This example covers fitting a social preference model to duration data
-(where the duration of social events is recorded) with an
-observation-level location effect, basic model checking and diagnostics,
-visualising networks with uncertainty, calculating probability
-distributions over network centrality, and propagating network
-uncertainty into subsequent analyses.
+This example covers fitting a edge weight model to duration data (where
+the duration of social events is recorded) with an observation-level
+location effect, basic model checking and diagnostics, visualising
+networks with uncertainty, calculating probability distributions over
+network centrality, and propagating network uncertainty into subsequent
+analyses.
 
 # Setup
 
@@ -35,10 +35,10 @@ exact definition of observation period will depend on the study, but is
 commonly a sampling period where at least one of the members of the dyad
 was observed. This can also be a sampling period where both members of
 the dyad were observed, and the distinction will affect the
-interpretation of social preferences. See the paper for further
-discussion on this. `location` denotes the location at which the
-observation took place, which may be relevant if location is likely to
-impact the visibility of social events.
+interpretation of edge weights. See the paper for further discussion on
+this. `location` denotes the location at which the observation took
+place, which may be relevant if location is likely to impact the
+visibility of social events.
 
 ``` r
 set.seed(1)
@@ -233,16 +233,16 @@ features of the data well. Now we can be reasonably confident that the
 model has fit correctly and describes the data well, so we can start to
 make inferences from the model.
 
-# Extracting social preferences
+# Extracting edge weights
 
-The main purpose of this part of the framework is to estimate social
-preferences of dyads. We can access these using the `logit_p` quantity.
-This will give a distribution of logit-scale social preferences for each
-dyad, akin to an edge list. A more useful format for network data is
-usually adjacency matrices, rather than edge lists, so instead we’ll
-convert the distribution of edge lists to a distribution of adjacency
-matrices, and store the result in an 8 x 8 x 4000 tensor, as there are 8
-nodes and 4000 samples from the posterior.
+The main purpose of this part of the framework is to estimate edge
+weights of dyads. We can access these using the `logit_p` quantity. This
+will give a distribution of logit-scale edge weights for each dyad, akin
+to an edge list. A more useful format for network data is usually
+adjacency matrices, rather than edge lists, so instead we’ll convert the
+distribution of edge lists to a distribution of adjacency matrices, and
+store the result in an 8 x 8 x 4000 tensor, as there are 8 nodes and
+4000 samples from the posterior.
 
 ``` r
 df_obs_agg$both_lifeform <- as.integer(df_obs_agg$node_1_type == "Lifeform" & df_obs_agg$node_2_type == "Lifeform")
@@ -259,35 +259,35 @@ for (dyad_id in 1:model_data$M) {
 adj_tensor[, , 1] # Print the first sample of the posterior distribution over adjacency matrices
 ```
 
-    ##      [,1]     [,2]     [,3]      [,4]       [,5]        [,6]        [,7]
-    ## [1,]    0 1.545145 1.402663 1.4073912  0.1272230 -0.02903827 -0.71657439
-    ## [2,]    0 0.000000 3.830558 0.6439938 -0.5034262 -0.49685602  0.46257351
-    ## [3,]    0 0.000000 0.000000 1.0163840 -0.5202109 -0.04456489 -0.13936653
-    ## [4,]    0 0.000000 0.000000 0.0000000 -0.4669158 -0.23020877 -1.14356223
-    ## [5,]    0 0.000000 0.000000 0.0000000  0.0000000 -0.78570981  1.62677143
-    ## [6,]    0 0.000000 0.000000 0.0000000  0.0000000  0.00000000 -0.01281999
-    ## [7,]    0 0.000000 0.000000 0.0000000  0.0000000  0.00000000  0.00000000
-    ## [8,]    0 0.000000 0.000000 0.0000000  0.0000000  0.00000000  0.00000000
+    ##      [,1]      [,2]      [,3]      [,4]      [,5]      [,6]       [,7]
+    ## [1,]    0 0.6299539 0.6324871 0.7734152 -1.182475 -0.917310  1.6343248
+    ## [2,]    0 0.0000000 0.2783207 0.5243592 -1.434937 -1.210954  0.1463585
+    ## [3,]    0 0.0000000 0.0000000 0.4908926 -1.251841 -1.106046 -0.7085264
+    ## [4,]    0 0.0000000 0.0000000 0.0000000 -2.110295 -1.152069 -1.0876380
+    ## [5,]    0 0.0000000 0.0000000 0.0000000  0.000000 -1.571483  0.9716858
+    ## [6,]    0 0.0000000 0.0000000 0.0000000  0.000000  0.000000 -0.5067143
+    ## [7,]    0 0.0000000 0.0000000 0.0000000  0.000000  0.000000  0.0000000
+    ## [8,]    0 0.0000000 0.0000000 0.0000000  0.000000  0.000000  0.0000000
     ##            [,8]
-    ## [1,] -0.6830763
-    ## [2,] -1.3457208
-    ## [3,]  0.4378401
-    ## [4,]  2.1857453
-    ## [5,]  1.3831669
-    ## [6,] -0.9686341
-    ## [7,]  0.8095666
+    ## [1,] -0.7670941
+    ## [2,] -1.8703058
+    ## [3,]  0.2847236
+    ## [4,]  0.4496163
+    ## [5,]  0.5844590
+    ## [6,] -1.5354883
+    ## [7,]  0.0530386
     ## [8,]  0.0000000
 
 The adjacency matrix above corresponds to a single draw of the posterior
 adjacency matrices. You’ll notice that many of the entries are negative,
-because the social preferences are on the logit scale. These can be
+because the edge weights are on the logit scale. These can be
 transformed back to the \[0, 1\] range using the logistic function. If
 there are no additional effects (such as location in our case), the
-transformed social preferences will be probabilities and the median will
-be approximately the same as the simple ratio index for each dyad.
-However, when additional effects are included, the transformed values
-can no longer be interpreted as probabilities, though they may be useful
-for visualisation and analysis purposes. We can logistic transform an
+transformed edge weights will be probabilities and the median will be
+approximately the same as the simple ratio index for each dyad. However,
+when additional effects are included, the transformed values can no
+longer be interpreted as probabilities, though they may be useful for
+visualisation and analysis purposes. We can logistic transform an
 adjacency matrix using the logistic function (`plogis()` in base R).
 This will also map 0 values to 0.5, so it will be necessary to set those
 values back to zero again. This transformation can be achieved using the
@@ -297,15 +297,15 @@ following code:
 plogis(adj_tensor[, , 1]) * upper.tri(adj_tensor[, , 1])
 ```
 
-    ##      [,1]      [,2]      [,3]      [,4]      [,5]      [,6]      [,7]      [,8]
-    ## [1,]    0 0.8242115 0.8026062 0.8033541 0.5317629 0.4927409 0.3281478 0.3355750
-    ## [2,]    0 0.0000000 0.9787633 0.6556557 0.3767358 0.3782798 0.6136245 0.2065709
-    ## [3,]    0 0.0000000 0.0000000 0.7342677 0.3728029 0.4888606 0.4652147 0.6077442
-    ## [4,]    0 0.0000000 0.0000000 0.0000000 0.3853465 0.4427006 0.2416669 0.8989621
-    ## [5,]    0 0.0000000 0.0000000 0.0000000 0.0000000 0.3130906 0.8357269 0.7994991
-    ## [6,]    0 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.4967950 0.2751528
-    ## [7,]    0 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.6920171
-    ## [8,]    0 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000
+    ##      [,1]     [,2]      [,3]      [,4]      [,5]      [,6]      [,7]      [,8]
+    ## [1,]    0 0.652479 0.6530532 0.6842592 0.2346075 0.2855063 0.8367612 0.3171080
+    ## [2,]    0 0.000000 0.5691345 0.6281665 0.1923306 0.2295323 0.5365244 0.1335063
+    ## [3,]    0 0.000000 0.0000000 0.6203167 0.2223815 0.2486087 0.3299245 0.5707039
+    ## [4,]    0 0.000000 0.0000000 0.0000000 0.1081002 0.2401114 0.2520633 0.6105480
+    ## [5,]    0 0.000000 0.0000000 0.0000000 0.0000000 0.1720051 0.7254554 0.6420928
+    ## [6,]    0 0.000000 0.0000000 0.0000000 0.0000000 0.0000000 0.3759641 0.1771921
+    ## [7,]    0 0.000000 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.5132565
+    ## [8,]    0 0.000000 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000
 
 It will be necessary to use this transformation for the visualisations
 and analyses we have planned, so we’ll apply the transformation to the
@@ -321,14 +321,14 @@ for (i in 1:dim(adj_tensor)[3]) {
 # Visualising uncertainty
 
 The aim of our network visualisation is to plot a network where the
-certainty in social preferences (edge weights) can be seen. To do this
-we’ll use a semi-transparent line around each edge with a width that
+certainty in edge weights (edge weights) can be seen. To do this we’ll
+use a semi-transparent line around each edge with a width that
 corresponds to a standardised uncertainty measures. The uncertainty
 measure will simply be the normalised difference between the 97.5% and
-2.5% credible interval estimate for each social preference. We can
-calculate this from the transformed adjacency tensor object, generate
-two igraph objects for the main network and the uncertainty in edges,
-and plot them with the same coordinates.
+2.5% credible interval estimate for each edge weight. We can calculate
+this from the transformed adjacency tensor object, generate two igraph
+objects for the main network and the uncertainty in edges, and plot them
+with the same coordinates.
 
 ``` r
 # Calculate lower, median, and upper quantiles of edge weights. Lower and upper give credible intervals.
@@ -380,13 +380,20 @@ colnames(centrality_matrix) <- c("Rey", "Leia", "Obi-Wan", "Luke", "C-3PO", "BB-
 head(centrality_matrix)
 ```
 
-    ##           Rey     Leia  Obi-Wan     Luke     C-3PO     BB-8     R2-D2      D-O
-    ## [1,] 4.482423 6.482271 6.687446 5.253514 3.1371613 0.000000 2.8989115 4.816319
-    ## [2,] 5.693434 6.396063 4.807799 4.373306 2.4774673 0.000000 3.2736776 4.424661
-    ## [3,] 1.652067 1.476217 1.887461 1.195832 0.8220648 0.000000 0.1265214 1.034265
-    ## [4,] 3.163382 3.101469 4.043083 3.640222 1.5744981 0.000000 0.2211680 2.297231
-    ## [5,] 2.822196 2.588310 2.706548 3.087931 0.3120669 0.000000 1.5069754 2.531554
-    ## [6,] 6.714511 5.656415 8.604494 8.154194 5.2301920 1.123028 4.6441589 3.879093
+    ##           Rey     Leia  Obi-Wan     Luke     C-3PO       BB-8     R2-D2
+    ## [1,] 3.670181 1.578992 1.686424 2.238283 1.5561447 0.00000000 2.8054077
+    ## [2,] 2.549897 2.079123 6.574515 6.756390 0.5105169 0.00000000 0.0000000
+    ## [3,] 5.251250 4.539426 4.753059 4.566138 4.3729239 0.00000000 4.7523576
+    ## [4,] 3.107712 1.563921 2.654649 4.204652 1.2720155 0.31536048 0.6928986
+    ## [5,] 4.122272 4.475608 3.655818 3.421413 0.8592372 0.00000000 1.0390026
+    ## [6,] 5.101773 6.399024 6.764553 6.315034 1.9747925 0.06647114 2.1034567
+    ##            D-O
+    ## [1,] 1.3718375
+    ## [2,] 0.9060369
+    ## [3,] 5.1176184
+    ## [4,] 3.4055889
+    ## [5,] 1.8999270
+    ## [6,] 3.7872131
 
 Each column in this matrix corresponds to one of the nodes in the
 network, and each row is its centrality in one sample of the posterior
@@ -399,14 +406,14 @@ centrality_quantiles
 ```
 
     ##               2.5%      50%     97.5%
-    ## Rey     2.07656414 5.082967  9.647479
-    ## Leia    1.52930726 5.103702  9.256464
-    ## Obi-Wan 1.84496940 5.404357 10.153049
-    ## Luke    1.49043206 4.890935  8.738310
-    ## C-3PO   0.15809290 2.107845  5.214322
-    ## BB-8    0.00000000 0.000000  1.838544
-    ## R2-D2   0.06097449 2.765157  7.497973
-    ## D-O     0.35317864 2.989039  6.557842
+    ## Rey     1.93750227 5.101661 10.128428
+    ## Leia    1.40342796 5.147526  9.912717
+    ## Obi-Wan 1.59669981 5.494188 10.817365
+    ## Luke    1.39861638 4.883407  9.189791
+    ## C-3PO   0.13808882 2.129185  5.611686
+    ## BB-8    0.00000000 0.000000  2.301269
+    ## R2-D2   0.04571567 2.791299  8.123343
+    ## D-O     0.30683324 3.019667  6.949016
 
 # Maintaining uncertainty in regression on centralities
 
@@ -490,20 +497,20 @@ centrality_matrix_std[is.nan(centrality_matrix_std)] <-0
 head(centrality_matrix_std)
 ```
 
-    ##            Rey       Leia   Obi-Wan      Luke      C-3PO      BB-8      R2-D2
-    ## [1,] 0.1202040 1.03539232 1.1292861 0.4730778 -0.4954264 -1.931082 -0.6044564
-    ## [2,] 0.8752666 1.22416967 0.4354888 0.2197338 -0.7216786 -1.951909 -0.3263062
-    ## [3,] 0.9186262 0.66129835 1.2630849 0.2510027 -0.2959422 -1.498895 -1.3137522
-    ## [4,] 0.5943934 0.55387487 1.1701028 0.9064557 -0.4454323 -1.475843 -1.3311027
-    ## [5,] 0.7323670 0.53721884 0.6358734 0.9540881 -1.3620093 -1.622388 -0.3650137
-    ## [6,] 0.5029143 0.06449492 1.2860242 1.0994436 -0.1121094 -1.813903 -0.3549308
-    ##              D-O
-    ## [1,]  0.27300455
-    ## [2,]  0.24523475
-    ## [3,]  0.01457709
-    ## [4,]  0.02755159
-    ## [5,]  0.48986409
-    ## [6,] -0.67193397
+    ##             Rey       Leia    Obi-Wan      Luke      C-3PO       BB-8
+    ## [1,] 1.66803309 -0.2625767 -0.1633944 0.3460885 -0.2836698 -1.7203206
+    ## [2,] 0.04609152 -0.1236452  1.4971588 1.5627336 -0.6892028 -0.8732686
+    ## [3,] 0.63282332  0.2165620  0.3414906 0.2321826  0.1191944 -2.4380115
+    ## [4,] 0.68625773 -0.4223915  0.3608981 1.4740083 -0.6320186 -1.3190255
+    ## [5,] 0.99567492  1.2040784  0.7205530 0.5822975 -0.9289140 -1.4357056
+    ## [6,] 0.41794584  0.9404126  1.0876289 0.9065854 -0.8414420 -1.6100164
+    ##           R2-D2        D-O
+    ## [1,]  0.8696643 -0.4538244
+    ## [2,] -0.8732686 -0.5465989
+    ## [3,]  0.3410803  0.5546782
+    ## [4,] -1.0479023  0.9001737
+    ## [5,] -0.8228855 -0.3150988
+    ## [6,] -0.7896227 -0.1114916
 
 Now we’re in a position to fit the model. To do this, we define the
 target function, which is simply a function that maps candidate
@@ -534,20 +541,20 @@ chain <- metropolis(target, c(0, 0, 0, 0), iterations=100000, thin=100, refresh=
     ## Chain: 1 | Iteration: 80000/102000 (Sampling)
     ## Chain: 1 | Iteration: 90000/102000 (Sampling)
     ## Chain: 1 | Iteration: 100000/102000 (Sampling)
-    ## Acceptance Rate: 0.230735294117647
+    ## Acceptance Rate: 0.231813725490196
 
 ``` r
 colnames(chain) <- c("intercept", "beta_lifeform", "beta_droid", "sigma")
 head(chain)
 ```
 
-    ##       intercept beta_lifeform beta_droid      sigma
-    ## [1,] -0.3241930     0.8312493 -0.1999167 -0.2762768
-    ## [2,] -0.7119803     1.1852332 -0.1618512 -0.4019959
-    ## [3,] -1.9188958     2.8134818  1.8800293 -0.5020059
-    ## [4,] -1.0688651     2.2115361  0.2356212 -0.4638475
-    ## [5,] -1.0852703     2.5768966  0.6820284 -0.1239550
-    ## [6,] -0.2834172     1.1843539 -0.7501749 -0.6964802
+    ##        intercept beta_lifeform beta_droid      sigma
+    ## [1,] -0.65606140     1.1321631 -0.2003659 -0.6388602
+    ## [2,] -1.12811924     1.3090276  0.7711949 -0.3482194
+    ## [3,] -0.43377421     1.1407170  0.0163191 -0.3771899
+    ## [4,] -0.61025953     0.7920225 -0.2348089 -0.6186749
+    ## [5,] -0.04808641     0.8849769 -0.8093936 -0.5050234
+    ## [6,]  0.76519156    -0.3926609 -1.5614124 -0.7854922
 
 # Checking the regression
 
@@ -604,10 +611,10 @@ coefficient_quantiles
 ```
 
     ##                     2.5%        50%     97.5%
-    ## intercept     -3.2330496 -0.1332490 3.0142606
-    ## beta_lifeform -2.1908156  0.8082640 3.8685352
-    ## beta_droid    -3.7260525 -0.6405153 2.4591854
-    ## sigma         -0.9438854 -0.3921612 0.2158221
+    ## intercept     -3.0312059  0.1560344 3.2299054
+    ## beta_lifeform -2.4718954  0.5923425 3.7672954
+    ## beta_droid    -3.7664876 -0.8175320 2.3187532
+    ## sigma         -0.9047409 -0.3838446 0.2522323
 
 A frequentist analysis (and some Bayesian ones too) would have only one
 category, lifeform or droid, and the other category would be the
@@ -624,7 +631,7 @@ quantile(beta_difference, probs=c(0.025, 0.5, 0.975))
 ```
 
     ##      2.5%       50%     97.5% 
-    ## 0.2002464 1.4162006 2.4697290
+    ## 0.1361281 1.4430411 2.5414739
 
 The mass of probability is with there being a positive difference of
 around 1.57 standard deviations between the centralities of lifeforms
@@ -637,9 +644,9 @@ reason we caution strongly against using such a rule.
 
 # Conclusion
 
-In this guide we have shown how to apply the social preference model to
-binary presence/absence data and how to conduct subsequent analyses,
-while maintaining uncertainty through the whole process. Though this
-process is quite hands-on, it provides a huge amount of flexibility for
+In this guide we have shown how to apply the edge weight model to binary
+presence/absence data and how to conduct subsequent analyses, while
+maintaining uncertainty through the whole process. Though this process
+is quite hands-on, it provides a huge amount of flexibility for
 conducting animal social network analyses in a robust and interpretable
 way.

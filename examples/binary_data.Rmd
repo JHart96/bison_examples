@@ -4,7 +4,7 @@ output:
   rmarkdown::github_document
 ---
 
-This example covers fitting a social preference model to presence/absence (binary) data with an observation-level location effect, basic model checking and diagnostics, visualising networks with uncertainty, calculating probability distributions over network centrality, and propagating network uncertainty into subsequent analyses.
+This example covers fitting a edge weight model to presence/absence (binary) data with an observation-level location effect, basic model checking and diagnostics, visualising networks with uncertainty, calculating probability distributions over network centrality, and propagating network uncertainty into subsequent analyses.
 
 # Setup
 
@@ -21,7 +21,7 @@ source("../scripts/sampler.R")
 
 # Simulating data
 
-Now we will simulate data using the `simulate_binary()` function. The rows of the resulting dataframe describe observations at the dyadic level between nodes. In this dataframe, `event` denotes whether or not an undirected social event was observed in this observation period. The exact definition of observation period will depend on the study, but is commonly a sampling period where at least one of the members of the dyad was observed. This can also be a sampling period where both members of the dyad were observed, and the distinction will affect the interpretation of social preferences. See the paper for further discussion on this. `location` denotes the location at which the observation took place, which may be relevant if location is likely to impact the visibility of social events.
+Now we will simulate data using the `simulate_binary()` function. The rows of the resulting dataframe describe observations at the dyadic level between nodes. In this dataframe, `event` denotes whether or not an undirected social event was observed in this observation period. The exact definition of observation period will depend on the study, but is commonly a sampling period where at least one of the members of the dyad was observed. This can also be a sampling period where both members of the dyad were observed, and the distinction will affect the interpretation of edge weights. See the paper for further discussion on this. `location` denotes the location at which the observation took place, which may be relevant if location is likely to impact the visibility of social events.
 
 ```{r}
 set.seed(123)
@@ -109,9 +109,9 @@ for (i in 1:20) {
 ```
 This plot shows that the observed data falls well within the predicted densities, and the predictions suggest the model has captured the main features of the data well. Now we can be reasonably confident that the model has fit correctly and describes the data well, so we can start to make inferences from the model.
 
-# Extracting social preferences
+# Extracting edge weights
 
-The main purpose of this part of the framework is to estimate social preferences of dyads. We can access these using the `logit_p` quantity. This will give a distribution of logit-scale social preferences for each dyad, akin to an edge list. A more useful format for network data is usually adjacency matrices, rather than edge lists, so instead we'll convert the distribution of edge lists to a distribution of adjacency matrices, and store the result in an 8 x 8 x 4000 tensor, as there are 8 nodes and 4000 samples from the posterior. 
+The main purpose of this part of the framework is to estimate edge weights of dyads. We can access these using the `logit_p` quantity. This will give a distribution of logit-scale edge weights for each dyad, akin to an edge list. A more useful format for network data is usually adjacency matrices, rather than edge lists, so instead we'll convert the distribution of edge lists to a distribution of adjacency matrices, and store the result in an 8 x 8 x 4000 tensor, as there are 8 nodes and 4000 samples from the posterior. 
 
 ```{r}
 logit_p_samples <- extract(fit)$logit_p
@@ -124,7 +124,7 @@ for (dyad_id in 1:model_data$M) {
 adj_tensor[, , 1] # Print the first sample of the posterior distribution over adjacency matrices
 ```
 
-The adjacency matrix above corresponds to a single draw of the posterior adjacency matrices. You'll notice that many of the entries are negative, because the social preferences are on the logit scale. These can be transformed back to the [0, 1] range using the logistic function. If there are no additional effects (such as location in our case), the transformed social preferences will be probabilities and the median will be approximately the same as the simple ratio index for each dyad. However, when additional effects are included, the transformed values can no longer be interpreted as probabilities, though they may be useful for visualisation and analysis purposes. We can logistic transform an adjacency matrix using the logistic function (`plogis()` in base R). This will also map 0 values to 0.5, so it will be necessary to set those values back to zero again. This transformation can be achieved using the following code:
+The adjacency matrix above corresponds to a single draw of the posterior adjacency matrices. You'll notice that many of the entries are negative, because the edge weights are on the logit scale. These can be transformed back to the [0, 1] range using the logistic function. If there are no additional effects (such as location in our case), the transformed edge weights will be probabilities and the median will be approximately the same as the simple ratio index for each dyad. However, when additional effects are included, the transformed values can no longer be interpreted as probabilities, though they may be useful for visualisation and analysis purposes. We can logistic transform an adjacency matrix using the logistic function (`plogis()` in base R). This will also map 0 values to 0.5, so it will be necessary to set those values back to zero again. This transformation can be achieved using the following code:
 
 ```{r}
 plogis(adj_tensor[, , 1]) * upper.tri(adj_tensor[, , 1])
@@ -141,7 +141,7 @@ for (i in 1:dim(adj_tensor)[3]) {
 
 # Visualising uncertainty
 
-The aim of our network visualisation is to plot a network where the certainty in social preferences (edge weights) can be seen. To do this we'll use a semi-transparent line around each edge with a width that corresponds to a standardised uncertainty measures. The uncertainty measure will simply be the normalised difference between the 97.5% and 2.5% credible interval estimate for each social preference. We can calculate this from the transformed adjacency tensor object, generate two igraph objects for the main network and the uncertainty in edges, and plot them with the same coordinates.
+The aim of our network visualisation is to plot a network where the certainty in edge weights (edge weights) can be seen. To do this we'll use a semi-transparent line around each edge with a width that corresponds to a standardised uncertainty measures. The uncertainty measure will simply be the normalised difference between the 97.5% and 2.5% credible interval estimate for each edge weight. We can calculate this from the transformed adjacency tensor object, generate two igraph objects for the main network and the uncertainty in edges, and plot them with the same coordinates.
 
 ```{r}
 # Calculate lower, median, and upper quantiles of edge weights. Lower and upper give credible intervals.
@@ -296,4 +296,4 @@ The mass of probability is with there being a positive difference of around 1.57
 
 # Conclusion
 
-In this guide we have shown how to apply the social preference model to binary presence/absence data and how to conduct subsequent analyses, while maintaining uncertainty through the whole process. Though this process is quite hands-on, it provides a huge amount of flexibility for conducting animal social network analyses in a robust and interpretable way.
+In this guide we have shown how to apply the edge weight model to binary presence/absence data and how to conduct subsequent analyses, while maintaining uncertainty through the whole process. Though this process is quite hands-on, it provides a huge amount of flexibility for conducting animal social network analyses in a robust and interpretable way.

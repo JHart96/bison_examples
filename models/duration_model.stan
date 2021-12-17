@@ -11,7 +11,7 @@ data {
 
 parameters {
   vector<lower=0>[M] lambda; // Mean event rates for each dyad
-  vector[M] logit_p; // Log social preferences for each dyad
+  vector[M] logit_p; // Log edge weights for each dyad
   vector[L] beta_loc; // Parameters for location effects.
   real<lower=0> loc_sigma; // Hyperparameter for location effect adaptive prior standard deviation.
 }
@@ -20,7 +20,7 @@ transformed parameters {
   vector[N] logit_pn;
   for (i in 1:N) {
     if (location_ids[i] > 0) {
-      logit_pn[i] = logit_p[dyad_ids[i]] + beta_loc[location_ids[i]]; // Calculate observation-level social preferences.
+      logit_pn[i] = logit_p[dyad_ids[i]] + beta_loc[location_ids[i]]; // Calculate observation-level edge weights.
     } else {
       logit_pn[i] = logit_p[dyad_ids[i]];
     }

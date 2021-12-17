@@ -99,7 +99,7 @@ simulate_duration <- function() {
   # Duration of each sampling/observation period
   obs_time <- 600
 
-  # Create underlying social preferences, rho.
+  # Create underlying edge weights, rho.
   n <- 8
   logit_p <- matrix(rnorm(n^2, -4, 1), n, n)
   node_types_binary <- 1 * (node_types == "Lifeform")

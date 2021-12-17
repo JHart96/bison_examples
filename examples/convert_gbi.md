@@ -45,26 +45,26 @@ obs
 ```
 
     ##       [,1] [,2] [,3] [,4] [,5] [,6] [,7] [,8]
-    ##  [1,]    1    1    0    1    0    0    1    1
-    ##  [2,]    0    0    0    1    0    0    1    1
-    ##  [3,]    0    0    1    1    1    0    0    0
-    ##  [4,]    1    1    0    0    1    0    0    0
-    ##  [5,]    1    1    0    0    0    1    0    0
-    ##  [6,]    0    0    1    0    1    1    1    0
-    ##  [7,]    0    0    0    0    0    1    0    1
-    ##  [8,]    0    1    0    0    0    0    1    0
-    ##  [9,]    0    1    1    0    0    1    0    0
-    ## [10,]    1    0    0    0    0    1    1    1
-    ## [11,]    0    1    0    1    0    1    0    0
-    ## [12,]    1    0    0    0    0    0    1    0
-    ## [13,]    1    0    0    1    1    1    0    0
-    ## [14,]    0    0    0    1    0    0    1    0
-    ## [15,]    0    0    0    0    1    0    0    0
-    ## [16,]    1    1    0    0    0    1    1    0
-    ## [17,]    1    0    0    0    1    0    0    1
-    ## [18,]    0    0    0    0    1    0    0    0
-    ## [19,]    1    0    0    0    1    0    0    0
-    ## [20,]    1    0    0    0    0    0    1    1
+    ##  [1,]    0    0    0    1    1    0    0    0
+    ##  [2,]    1    1    1    0    0    0    0    1
+    ##  [3,]    0    0    1    0    0    1    0    0
+    ##  [4,]    0    0    0    0    0    0    0    0
+    ##  [5,]    0    0    0    1    0    0    1    1
+    ##  [6,]    0    0    0    0    1    0    0    0
+    ##  [7,]    0    0    0    0    1    1    1    0
+    ##  [8,]    1    0    1    0    1    0    1    1
+    ##  [9,]    1    0    1    1    0    0    1    0
+    ## [10,]    1    0    0    0    0    0    0    1
+    ## [11,]    0    1    0    1    1    1    0    1
+    ## [12,]    0    0    0    0    0    1    1    1
+    ## [13,]    0    1    0    0    0    1    0    0
+    ## [14,]    0    0    0    0    0    1    1    1
+    ## [15,]    1    0    0    1    0    1    0    0
+    ## [16,]    0    0    1    1    1    1    1    0
+    ## [17,]    0    0    0    0    0    0    0    0
+    ## [18,]    0    1    0    1    1    0    0    0
+    ## [19,]    1    0    0    0    0    0    0    0
+    ## [20,]    0    1    0    0    0    0    0    0
 
 ## Convert to long format
 
@@ -101,12 +101,12 @@ head(df)
 ```
 
     ##   node_1 node_2 social_event obs_id
-    ## 1      1      2            1      1
-    ## 2      1      3            0      1
-    ## 3      1      4            1      1
-    ## 4      1      5            0      1
-    ## 5      1      6            0      1
-    ## 6      1      7            1      1
+    ## 1      1      4            0      1
+    ## 2      2      4            0      1
+    ## 3      3      4            0      1
+    ## 4      4      5            1      1
+    ## 5      4      6            0      1
+    ## 6      4      7            0      1
 
 ## Prepare dataframe for Stan model
 
@@ -125,12 +125,12 @@ head(df)
     ## # Groups:   node_1, node_2 [6]
     ##   node_1 node_2 social_event obs_id dyad_id
     ##    <dbl>  <dbl>        <dbl>  <int>   <int>
-    ## 1      1      2            1      1       1
-    ## 2      1      3            0      1       2
-    ## 3      1      4            1      1       3
-    ## 4      1      5            0      1       4
-    ## 5      1      6            0      1       5
-    ## 6      1      7            1      1       6
+    ## 1      1      4            0      1       3
+    ## 2      2      4            0      1       9
+    ## 3      3      4            0      1      14
+    ## 4      4      5            1      1      19
+    ## 5      4      6            0      1      20
+    ## 6      4      7            0      1      21
 
 Prepare data list for model.
 
@@ -154,12 +154,6 @@ model <- stan_model("../models/group_model.stan")
 ``` r
 fit <- sampling(model, model_data, cores=4)
 ```
-
-    ## Warning: There were 1 divergent transitions after warmup. See
-    ## http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
-    ## to find out why this is a problem and how to eliminate them.
-
-    ## Warning: Examine the pairs() plot to diagnose sampling problems
 
 Do a quick visualisation of the parameter values.
 
