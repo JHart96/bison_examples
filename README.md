@@ -10,3 +10,5 @@ The BISON framework is a Bayesian modelling framework for capturing uncertainty 
 * [Binary Data](examples/binary_data.md)
 * [Count Data](examples/count_data.md)
 * [Duration Data](examples/duration_data.md)
+* [Gambit of the Group Data](examples/group_data.md)
+* [Partial Pooling](models/pooled_count_model.stan)
