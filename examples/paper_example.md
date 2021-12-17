@@ -1,0 +1,713 @@
+Example from paper
+================
+
+This example covers fitting an edge weight model to count data (where
+the count of social events per observation is recorded) with an
+observation-level location effect, basic model checking and diagnostics,
+visualising networks with uncertainty, calculating probability
+distributions over network centrality, and propagating network
+uncertainty into subsequent analyses.
+
+# Setup
+
+First of all we’ll load in Rstan for model fitting in Stan, dplyr for
+handling the data, and igraph for network plotting and computing network
+centrality. We also load in two custom R files: “simulations.R” to
+generate synthetic data for this example; and “sampler.R” to allow
+fitting models with uncertainty over network features respectively.
+
+``` r
+library(rstan)
+library(dplyr)
+library(igraph)
+
+source("../scripts/simulations.R")
+source("../scripts/sampler.R")
+```
+
+# Simulating data
+
+Now we will simulate data using the `simulate_binary()` function. The
+rows of the resulting dataframe describe observations at the dyadic
+level between nodes. In this dataframe, `event` denotes whether or not
+an undirected social event was observed in this observation period. The
+exact definition of observation period will depend on the study, but is
+commonly a sampling period where at least one of the members of the dyad
+was observed. This can also be a sampling period where both members of
+the dyad were observed, and the distinction will affect the
+interpretation of edge weights. See the paper for further discussion on
+this. `location` denotes the location at which the observation took
+place, which may be relevant if location is likely to impact the
+visibility of social events.
+
+``` r
+set.seed(1)
+data <- simulate_count()
+df <- data$df
+head(df)
+```
+
+    ##   node_1  node_2   type_1   type_2 event_count location
+    ## 1    Rey    Leia Lifeform Lifeform           3        C
+    ## 2    Rey Obi-Wan Lifeform Lifeform           9        A
+    ## 3    Rey Obi-Wan Lifeform Lifeform          26        F
+    ## 4    Rey Obi-Wan Lifeform Lifeform           5        D
+    ## 5    Rey Obi-Wan Lifeform Lifeform          13        A
+    ## 6    Rey Obi-Wan Lifeform Lifeform          19        E
+
+# Preparing the data
+
+Computationally it’s easier to work with dyad IDs rather than pairs of
+nodes in the statistical model, so we’ll map the pairs of nodes to dyad
+IDs before we put the data into the model. The same is true for the
+location factor, so we will also map the locations to location IDs. We
+can add these columns to the dataframe using the following code:
+
+``` r
+df <- df %>%
+  group_by(node_1, node_2) %>%
+  mutate(dyad_id=cur_group_id()) %>%
+  mutate(location_id=as.integer(location))
+head(df)
+```
+
+    ## # A tibble: 6 × 8
+    ## # Groups:   node_1, node_2 [2]
+    ##   node_1 node_2  type_1   type_2   event_count location dyad_id location_id
+    ##   <fct>  <fct>   <fct>    <fct>          <int> <fct>      <int>       <int>
+    ## 1 Rey    Leia    Lifeform Lifeform           3 C              1           3
+    ## 2 Rey    Obi-Wan Lifeform Lifeform           9 A              2           1
+    ## 3 Rey    Obi-Wan Lifeform Lifeform          26 F              2           6
+    ## 4 Rey    Obi-Wan Lifeform Lifeform           5 D              2           4
+    ## 5 Rey    Obi-Wan Lifeform Lifeform          13 A              2           1
+    ## 6 Rey    Obi-Wan Lifeform Lifeform          19 E              2           5
+
+It will also be useful later to aggregate the dataframe at the dyad
+level, assign dyad IDs corresponding to each dyad, and calculate total
+event counts for each dyad. We can do this using:
+
+``` r
+df_agg <- df %>%
+  group_by(node_1, node_2) %>%
+  summarise(event_count_total=sum(event_count), dyad_id=cur_group_id()) %>%
+  mutate(node_1_id=as.integer(node_1), node_2_id=as.integer(node_2))
+head(df_agg)
+```
+
+    ## # A tibble: 6 × 6
+    ## # Groups:   node_1 [1]
+    ##   node_1 node_2  event_count_total dyad_id node_1_id node_2_id
+    ##   <fct>  <fct>               <int>   <int>     <int>     <int>
+    ## 1 Rey    Leia                    3       1         1         2
+    ## 2 Rey    Obi-Wan               140       2         1         3
+    ## 3 Rey    Luke                  169       3         1         4
+    ## 4 Rey    C-3PO                  94       4         1         5
+    ## 5 Rey    BB-8                  111       5         1         6
+    ## 6 Rey    R2-D2                 241       6         1         7
+
+Now we have all of the data in the right format for fitting the model,
+we just need to put it into a list object. The data required by the
+statistical model is defined in `binary_model.stan`.
+
+``` r
+model_data <- list(
+  N=nrow(df), # Number of observations
+  M=nrow(df_agg), # Number of dyads
+  L=6, # Number of locations
+  dyad_ids=df$dyad_id, # Vector of dyad IDs corresponding to each observation
+  location_ids=df$location_id, # Vector of location IDs corresponding to each observation
+  event_count=df$event_count # Vector of event counts corresponding to each observation
+)
+```
+
+# Fitting the model
+
+To fit the model, we first must compile it and load it into memory using
+the function `stan_model()` and providing the filepath to the model. The
+working directory will need to be set to the directory of the model for
+this to work properly.
+
+``` r
+model <- stan_model("../models/count_model.stan")
+```
+
+Compiling the model may take a minute or two, but once this is done, the
+model can be fit using `sampling()`. The argument `cores` sets the
+number of CPU cores to be used for fitting the model, if your computer
+has 4 or more cores, it’s worth setting this to 4.
+
+``` r
+fit <- sampling(model, model_data, cores=4, iter=5000, refresh=500)
+```
+
+# Model checking
+
+The R-hat values provided by Stan indicate how well the chains have
+converged, with values very close to 1.00 being ideal. Values diverging
+from 1.00 indicate that the posterior samples may be very unreliable,
+and shouldn’t be trusted. The chains can be plotted using Rstan’s
+`traceplot` function to verify this visually:
+
+``` r
+traceplot(fit)
+```
+
+![](paper_example_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
+
+Good R-hat values don’t necessarily indicate that the model is
+performing well, only that the parameter estimates appear to be robust.
+To check that the model is performing as it should, a predictive check
+can be used. A predictive check uses the fitted model to make
+predictions, and compares those predictions to the observed data. The
+predictions should indicate that the observed data are concordant with
+the predictions from the model. There are many ways to perform a
+predictive check, as data can be summarised in many different ways. For
+the purposes of this example, we’ll use a simple density check where the
+probability distributions of the aggregated event counts are compared
+against the predictions from the model. Note that this isn’t a guarantee
+that the model predictions are good, only that the predictions have the
+same event count distribution as the data. Ideally several predictive
+checks would be used to check the performance of the model.
+
+This check uses predictions generated by the Stan model as the quantity
+`event_pred`, with one set of predictions for each step in the MCMC
+chain. The predictive check will randomly sample 10 of these steps,
+compute the event counts for each dyad, and plot the densities against
+the density of the observed event counts from the data.
+
+``` r
+# Extract event predictions from the fitted model
+event_pred <- rstan::extract(fit)$event_pred
+num_iterations <- dim(event_pred)[1]
+
+# Plot the density of the observed event counts
+plot(density(df_agg$event_count_total), main="", xlab="Dyadic event counts", xlim=c(0, 600), ylim=c(0, 0.006), frame.plot=FALSE)
+# Plot the densities of the predicted event counts, repeat for 10 samples
+df_copy <- df
+for (i in 1:50) {
+  df_copy$event_count <- event_pred[sample(1:num_iterations, size=1), ]
+  df_agg_copy <- df_copy %>% 
+    group_by(node_1, node_2) %>%
+    summarise(event_count_total=sum(event_count))
+  lines(density(df_agg_copy$event_count_total), ylim=c(0, 0.007), col="#387780")
+}
+lines(density(df_agg$event_count_total), lwd=3, main="", xlab="Dyadic event counts", ylim=c(0, 0.007))
+```
+
+![](paper_example_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
+
+``` r
+# axis(side = 1)
+```
+
+``` r
+log_p_samples <- extract(fit)$log_p
+p_quantiles <- apply(log_p_samples, 2, function(x) quantile(x, probs=c(0.025, 0.5, 0.975)))
+
+plot(t(data$p)[lower.tri(data$p)], p_quantiles[2, ])
+```
+
+![](paper_example_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
+
+``` r
+df_comparison <- data.frame(true=log(t(data$p)[lower.tri(data$p)]), est=p_quantiles[2, ], est_lower=p_quantiles[1, ], est_upper=p_quantiles[3, ])
+ggplot(df_comparison, aes(x=true, y=est)) +
+  geom_point(color="#387780") +
+  geom_errorbar(aes(ymin=est_lower, ymax=est_upper)) +
+  geom_abline() +
+  labs(x="Underlying edge weight", y="Estimated edge weight") +
+  coord_cartesian(ylim=c(-1, 3)) +
+  theme_classic()
+```
+
+![](paper_example_files/figure-gfm/unnamed-chunk-10-2.png)<!-- -->
+
+``` r
+ggsave("true_vs_est.png", dpi=600)
+```
+
+    ## Saving 6 x 5 in image
+
+This plot shows that the observed data falls well within the predicted
+densities, and the predictions suggest the model has captured the main
+features of the data well. Now we can be reasonably confident that the
+model has fit correctly and describes the data well, so we can start to
+make inferences from the model.
+
+# Extracting edge weights
+
+The main purpose of this part of the framework is to estimate edge
+weights of dyads. We can access these using the `logit_p` quantity. This
+will give a distribution of logit-scale edge weights for each dyad, akin
+to an edge list. A more useful format for network data is usually
+adjacency matrices, rather than edge lists, so instead we’ll convert the
+distribution of edge lists to a distribution of adjacency matrices, and
+store the result in an 8 x 8 x 4000 tensor, as there are 8 nodes and
+4000 samples from the posterior.
+
+``` r
+log_p_samples <- extract(fit)$log_p
+
+adj_tensor <- array(0, c(8, 8, num_iterations))
+for (dyad_id in 1:model_data$M) {
+  dyad_row <- df_agg[df_agg$dyad_id == dyad_id, ]
+  adj_tensor[dyad_row$node_1_id, dyad_row$node_2_id, ] <- log_p_samples[, dyad_id]
+}
+adj_tensor[, , 1] # Print the first sample of the posterior distribution over adjacency matrices
+```
+
+    ##      [,1]     [,2]     [,3]     [,4]       [,5]     [,6]        [,7]       [,8]
+    ## [1,]    0 2.273728 2.224927 1.843949  0.7210047 1.385158  1.22481362 -3.3737347
+    ## [2,]    0 0.000000 2.226326 1.886549 -0.2535260 1.360514  1.37030523  0.9631705
+    ## [3,]    0 0.000000 0.000000 1.479270  1.2524428 1.293801  0.80959893  1.0092793
+    ## [4,]    0 0.000000 0.000000 0.000000  0.9777576 1.007378  1.43223045  0.8416360
+    ## [5,]    0 0.000000 0.000000 0.000000  0.0000000 1.013561  0.63182042  1.3463744
+    ## [6,]    0 0.000000 0.000000 0.000000  0.0000000 0.000000 -0.09276838  0.2656540
+    ## [7,]    0 0.000000 0.000000 0.000000  0.0000000 0.000000  0.00000000  0.5002598
+    ## [8,]    0 0.000000 0.000000 0.000000  0.0000000 0.000000  0.00000000  0.0000000
+
+The adjacency matrix above corresponds to a single draw of the posterior
+adjacency matrices. You’ll notice that many of the entries are negative,
+because the edge weights are on the logit scale. These can be
+transformed back to the \[0, 1\] range using the logistic function. If
+there are no additional effects (such as location in our case), the
+transformed edge weights will be probabilities and the median will be
+approximately the same as the simple ratio index for each dyad. However,
+when additional effects are included, the transformed values can no
+longer be interpreted as probabilities, though they may be useful for
+visualisation and analysis purposes. We can logistic transform an
+adjacency matrix using the logistic function (`plogis()` in base R).
+This will also map 0 values to 0.5, so it will be necessary to set those
+values back to zero again. This transformation can be achieved using the
+following code:
+
+``` r
+plogis(adj_tensor[, , 1]) * upper.tri(adj_tensor[, , 1])
+```
+
+    ##      [,1]      [,2]      [,3]      [,4]      [,5]      [,6]      [,7]
+    ## [1,]    0 0.9066777 0.9024658 0.8634150 0.6728282 0.7998180 0.7729095
+    ## [2,]    0 0.0000000 0.9025888 0.8683616 0.4369558 0.7958432 0.7974295
+    ## [3,]    0 0.0000000 0.0000000 0.8144623 0.7777224 0.7847899 0.6920240
+    ## [4,]    0 0.0000000 0.0000000 0.0000000 0.7266630 0.7325067 0.8072486
+    ## [5,]    0 0.0000000 0.0000000 0.0000000 0.0000000 0.7337165 0.6529021
+    ## [6,]    0 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.4768245
+    ## [7,]    0 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000
+    ## [8,]    0 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000
+    ##            [,8]
+    ## [1,] 0.03312648
+    ## [2,] 0.72375615
+    ## [3,] 0.73287909
+    ## [4,] 0.69880966
+    ## [5,] 0.79353626
+    ## [6,] 0.56602566
+    ## [7,] 0.62252039
+    ## [8,] 0.00000000
+
+It will be necessary to use this transformation for the visualisations
+and analyses we have planned, so we’ll apply the transformation to the
+entire tensor:
+
+``` r
+adj_tensor_transformed <- adj_tensor
+for (i in 1:dim(adj_tensor)[3]) {
+  adj_tensor_transformed[, , i] <- plogis(adj_tensor[, , i]) * upper.tri(adj_tensor[, , i])
+}
+```
+
+# Visualising uncertainty
+
+The aim of our network visualisation is to plot a network where the
+certainty in edge weights (edge weights) can be seen. To do this we’ll
+use a semi-transparent line around each edge with a width that
+corresponds to a standardised uncertainty measures. The uncertainty
+measure will simply be the normalised difference between the 97.5% and
+2.5% credible interval estimate for each edge weight. We can calculate
+this from the transformed adjacency tensor object, generate two igraph
+objects for the main network and the uncertainty in edges, and plot them
+with the same coordinates.
+
+``` r
+minmax_norm <- function(x) {
+  (x - min(x))/(max(x) - min(x))
+}
+```
+
+``` r
+# Calculate lower, median, and upper quantiles of edge weights. Lower and upper give credible intervals.
+adj_quantiles <- apply(adj_tensor_transformed, c(1, 2), function(x) quantile(x, probs=c(0.025, 0.5, 0.975)))
+adj_lower <- adj_quantiles[1, , ]
+adj_mid <- adj_quantiles[2, , ]
+adj_upper <- adj_quantiles[3, , ]
+
+# Calculate standardised width/range of credible intervals.
+adj_range <- ((adj_upper - adj_lower))
+adj_range[is.nan(adj_range)] <- 0
+
+# Generate two igraph objects, one form the median and one from the standardised width.
+g_mid <- graph_from_adjacency_matrix(adj_mid * (adj_mid > 0.65), mode="undirected", weighted=TRUE)
+g_range <- graph_from_adjacency_matrix(adj_range * (adj_mid > 0.65), mode="undirected", weighted=TRUE)
+
+# Plot the median graph first and then the standardised width graph to show uncertainty over edges.
+coords <- igraph::layout_nicely(g_mid)
+plot(g_mid, edge.width=10 * minmax_norm(E(g_mid)$weight), edge.color="black",  layout=coords)
+plot(g_mid, edge.width=60 * minmax_norm(E(g_range)$weight), edge.color=rgb(0, 0, 0, 0.25), vertex.color="#387780",
+     # vertex.label=c("1", "2", "3", "4", "5", "6", "7", "D-O"),
+     vertex.label.dist=0, vertex.label.color="white", vertex.label.cex=2.5, vertex.label.family="Helvetica", layout=coords, add=TRUE)
+```
+
+![](paper_example_files/figure-gfm/unnamed-chunk-15-1.png)<!-- -->
+
+This plot can be extended in multiple ways, for example by thresholding
+low edge weights to visualise the network more tidily, or by adding
+halos around nodes to show uncertainty around network centrality, and so
+on.
+
+# Extracting network centralities
+
+Uncertainty around network metrics such as centrality can be calculated
+quite simply by drawing adjacency matrices from the posterior
+distribution over adjacency matrices, generating a network from them,
+and calculating the network metric of interest. It is important to
+sample over the adjacency matrices rather than by the edges on their
+own, as this maintains the joint distribution of edge weights and will
+generate more reliable and accurate estimates of network centrality.
+
+``` r
+centrality_matrix <- matrix(0, nrow=num_iterations, ncol=8)
+for (i in 1:num_iterations) {
+  g <- graph_from_adjacency_matrix(adj_tensor[, , i], mode="undirected", weighted=TRUE)
+  centrality_matrix[i, ] <- eigen_centrality(g)$vector
+}
+colnames(centrality_matrix) <- c("Rey", "Leia", "Obi-Wan", "Luke", "C-3PO", "BB-8", "R2-D2", "D-O")
+head(centrality_matrix)
+```
+
+    ##            Rey      Leia   Obi-Wan      Luke     C-3PO      BB-8     R2-D2
+    ## [1,] 0.9832970 1.0000000 0.9891278 0.9138138 0.5425903 0.6676700 0.6277017
+    ## [2,] 0.8537078 0.8700414 1.0000000 0.9314236 0.3129034 0.6180574 0.5040660
+    ## [3,] 0.9571199 0.9849974 1.0000000 0.9387392 0.6164683 0.7287142 0.6611763
+    ## [4,] 0.9311090 0.9348910 1.0000000 0.9520882 0.5922159 0.6871075 0.6477669
+    ## [5,] 0.8723108 0.8916066 1.0000000 0.9309132 0.6100483 0.7280193 0.6715952
+    ## [6,] 0.9265793 1.0000000 0.9556471 0.7892924 0.1430438 0.3995441 0.3720437
+    ##             D-O
+    ## [1,] 0.47141026
+    ## [2,] 0.25269816
+    ## [3,] 0.54808970
+    ## [4,] 0.49482895
+    ## [5,] 0.47888012
+    ## [6,] 0.07144978
+
+Each column in this matrix corresponds to one of the nodes in the
+network, and each row is its centrality in one sample of the posterior
+distribution of the adjacency matrices. We can calculate the credible
+intervals using the `quantile` function as follows:
+
+``` r
+centrality_quantiles <- t(apply(centrality_matrix, 2, function(x) quantile(x, probs=c(0.025, 0.5, 0.975))))
+centrality_quantiles
+```
+
+    ##               2.5%       50%     97.5%
+    ## Rey     0.77907094 0.9053450 0.9908614
+    ## Leia    0.82476166 0.9389185 1.0000000
+    ## Obi-Wan 0.93162813 1.0000000 1.0000000
+    ## Luke    0.79802077 0.9176537 0.9651116
+    ## C-3PO   0.15710498 0.5186878 0.6575484
+    ## BB-8    0.40303592 0.6524787 0.7515822
+    ## R2-D2   0.35526908 0.6132909 0.7215432
+    ## D-O     0.08166233 0.4408989 0.5945389
+
+``` r
+plot(centrality_quantiles[, 2], 1:nrow(centrality_quantiles), xlim=c(min(centrality_quantiles), max(centrality_quantiles)), xlab="Node strength", ylab="Node ID", col="#387780", )
+arrows(x0=centrality_quantiles[, 3], y0=1:nrow(centrality_quantiles), x1=centrality_quantiles[, 1], y1=1:nrow(centrality_quantiles), lwd=3, code=0)
+```
+
+![](paper_example_files/figure-gfm/unnamed-chunk-18-1.png)<!-- -->
+
+``` r
+library(ggplot2)
+library(tidyr)
+```
+
+    ## 
+    ## Attaching package: 'tidyr'
+
+    ## The following object is masked from 'package:igraph':
+    ## 
+    ##     crossing
+
+    ## The following object is masked from 'package:rstan':
+    ## 
+    ##     extract
+
+``` r
+df_wide <- data.frame(centrality_matrix)
+colnames(df_wide) <- 1:8
+df_long <- pivot_longer(df_wide, cols=1:8, names_to="node_id", values_to="Centrality")
+ggplot(df_long, aes(x=Centrality)) +
+  geom_density(fill="#387780", alpha=0.7, size=0.8) +
+  facet_grid(rows=vars(as.factor(node_id)), scales="free") +
+  labs(x="Eigenvector centrality") + 
+  theme_void() + 
+  theme(strip.text.y=element_text(size=30), axis.text.x = element_text(angle = 0, size=30, debug = FALSE), axis.title.x=element_text(size=30), plot.margin = unit(c(0.2,0.2,0.2,0.2), "cm"))
+```
+
+![](paper_example_files/figure-gfm/unnamed-chunk-19-1.png)<!-- -->
+
+# Maintaining uncertainty in regression on centralities
+
+The key challenge to quantifying uncertainty in network analysis is to
+incorporate uncertainty due to sampling into downstream analyses,
+commonly regression. This can be achieved by modifying the likelihood
+function of a regression model to treat the network centralities with
+uncertainty. We have written a custom MCMC sampler function that samples
+from the joint distribution of network centralities calculated earlier
+and treats those samples as the data in the likelihood function.
+Likelihood functions for the sampler use the `index` variable to keep
+track of which data points are being compared internally in the sampler,
+to ensure that candidate steps in the MCMC are not accepted or rejected
+because they are being compared to different data points, rather than
+because of the parameter space.
+
+Custom likelihood functions take a similar form to the `target +=`
+syntax in Stan, but for more specific resources the following document
+is a good start: <https://www.ime.unicamp.br/~cnaber/optim_1.pdf>. We
+will implement a linear regression to test if lifeforms are more central
+in the social network than droids. We have included a coefficient for
+both lifeform and droid, unlike standard frequentist models. This is
+because using a reference category (such as droid) would imply that
+there is less uncertainty around the centrality of droids than around
+lifeforms. It also allows for easy comparison between categories by
+calculating the difference in posteriors.
+
+``` r
+loglik <- function(params, Y, X, index) {
+  # Define parameters
+  # intercept <- params[1]
+  beta_lifeform <- params[1]
+  beta_droid <- params[2]
+  sigma <- exp(params[3]) # Exponential keeps underlying value unconstrained, which is much easier for the sampler.
+  
+  # Sample data according to index
+  y <- Y[index %% dim(Y)[1] + 1, ]
+  
+  # Define model
+  target <- 0
+  target <- target + sum(dnorm(y, mean=beta_lifeform * X[, 1] + beta_droid * X[, 2], sd=sigma, log=TRUE)) # Main model
+  # target <- target + dnorm(intercept, mean=0, sd=1, log=TRUE) # Prior on intercept
+  target <- target + dnorm(beta_lifeform, mean=0, sd=1, log=TRUE) # Prior on lifeform coefficient
+  target <- target + dnorm(beta_droid, mean=0, sd=1, log=TRUE) # Prior on droid coefficient
+  target <- target + dexp(sigma, 1, log=TRUE) # Prior on sigma
+  
+  return(target)
+}
+```
+
+Now we will prepare data for fitting the model. The predictor matrix is
+simply a matrix with 2 columns and 8 rows, corresponding to whether each
+of the 8 nodes is a lifeform (column 1) or a droid (column 2).
+
+``` r
+predictor_matrix <- matrix(0, nrow=8, ncol=2)
+colnames(predictor_matrix) <- c("lifeform", "droid")
+predictor_matrix[1:4, 1] <- 1
+predictor_matrix[5:8, 2] <- 1
+predictor_matrix
+```
+
+    ##      lifeform droid
+    ## [1,]        1     0
+    ## [2,]        1     0
+    ## [3,]        1     0
+    ## [4,]        1     0
+    ## [5,]        0     1
+    ## [6,]        0     1
+    ## [7,]        0     1
+    ## [8,]        0     1
+
+Since network strength is strictly positive, a Gaussian error is not a
+reasonable model for the data. The Gaussian family model is much easier
+to implement as well as interpret than many other models, so we will
+standardise the centralities by taking z-scores.
+
+``` r
+centrality_matrix_std <- (centrality_matrix - apply(centrality_matrix, 1, mean))/apply(centrality_matrix, 1, sd)
+centrality_matrix_std[is.nan(centrality_matrix_std)] <-0
+head(centrality_matrix_std)
+```
+
+    ##            Rey      Leia   Obi-Wan      Luke      C-3PO       BB-8      R2-D2
+    ## [1,] 0.9496801 1.0256333 0.9761943 0.6337203 -1.0543374 -0.4855651 -0.6673121
+    ## [2,] 0.6440483 0.7006525 1.1510243 0.9133727 -1.2301106 -0.1725988 -0.5676362
+    ## [3,] 0.8255716 0.9762843 1.0573924 0.7262007 -1.0160774 -0.4092476 -0.7743746
+    ## [4,] 0.7729345 0.7922799 1.1253197 0.8802454 -0.9605412 -0.4751602 -0.6763916
+    ## [5,] 0.5534300 0.6608753 1.2644440 0.8797467 -0.9069307 -0.2500306 -0.5642182
+    ## [6,] 0.9080793 1.1016791 0.9847269 0.5460732 -1.1579927 -0.4816377 -0.5541524
+    ##            D-O
+    ## [1,] -1.378013
+    ## [2,] -1.438752
+    ## [3,] -1.385749
+    ## [4,] -1.458686
+    ## [5,] -1.637317
+    ## [6,] -1.346776
+
+Now we’re in a position to fit the model. To do this, we define the
+target function, which is simply a function that maps candidate
+parameters and a network centrality index to the log-likelihood of that
+function for the given sample of the centrality posterior. This means
+the target function can be written as a function of the data
+`centrality_matrix_std` and `predictor_matrix`.
+
+``` r
+target <- function(params, index) loglik(params, centrality_matrix_std, predictor_matrix, index)
+```
+
+The function `metropolis` from `sampler.R` can now be used to fit the
+model using the provided target function, an initial set of parameters,
+and some additional MCMC options.
+
+``` r
+chain <- metropolis(target, c(0, 0, 0), iterations=200000, thin=100, refresh=10000)
+```
+
+    ## Chain: 1 | Iteration: 10000/202000 (Sampling)
+    ## Chain: 1 | Iteration: 20000/202000 (Sampling)
+    ## Chain: 1 | Iteration: 30000/202000 (Sampling)
+    ## Chain: 1 | Iteration: 40000/202000 (Sampling)
+    ## Chain: 1 | Iteration: 50000/202000 (Sampling)
+    ## Chain: 1 | Iteration: 60000/202000 (Sampling)
+    ## Chain: 1 | Iteration: 70000/202000 (Sampling)
+    ## Chain: 1 | Iteration: 80000/202000 (Sampling)
+    ## Chain: 1 | Iteration: 90000/202000 (Sampling)
+    ## Chain: 1 | Iteration: 100000/202000 (Sampling)
+    ## Chain: 1 | Iteration: 110000/202000 (Sampling)
+    ## Chain: 1 | Iteration: 120000/202000 (Sampling)
+    ## Chain: 1 | Iteration: 130000/202000 (Sampling)
+    ## Chain: 1 | Iteration: 140000/202000 (Sampling)
+    ## Chain: 1 | Iteration: 150000/202000 (Sampling)
+    ## Chain: 1 | Iteration: 160000/202000 (Sampling)
+    ## Chain: 1 | Iteration: 170000/202000 (Sampling)
+    ## Chain: 1 | Iteration: 180000/202000 (Sampling)
+    ## Chain: 1 | Iteration: 190000/202000 (Sampling)
+    ## Chain: 1 | Iteration: 200000/202000 (Sampling)
+    ## Acceptance Rate: 0.226014851485149
+
+``` r
+colnames(chain) <- c("beta_lifeform", "beta_droid", "sigma")
+head(chain)
+```
+
+    ##      beta_lifeform beta_droid      sigma
+    ## [1,]     0.8707180 -0.5984223 -0.5649534
+    ## [2,]     0.7393698 -0.8347238 -0.9043832
+    ## [3,]     0.9299425 -0.2886959 -0.7195691
+    ## [4,]     0.9153839 -1.7096726 -0.5384045
+    ## [5,]     0.7619604 -1.1557786 -0.6122616
+    ## [6,]     0.7101834 -0.7566462 -1.3407686
+
+# Checking the regression
+
+The resulting chain of MCMC samples forms the posterior distribution of
+parameter estimates for the regression model. But before we look at
+these too closely, we should check that the chains have converged:
+
+``` r
+par(mfrow=c(3, 1))
+for (i in 1:3) {
+  plot(chain[, i], type="l")
+}
+```
+
+![](paper_example_files/figure-gfm/unnamed-chunk-25-1.png)<!-- -->
+
+These chains appear to be quite healthy. Ideally we would run multiple
+additional chains starting at different points to check that they
+converge and mix properly. For the sake of this example we won’t go into
+that here.
+
+Again, the performance of the sampler doesn’t necessarily guarantee the
+performance of the model, so we’ll use predictive checks to test the
+performance of the model. In this case, the data are not fixed, and
+there are multiple possible values they can take. Therefore we’ll plot
+the distribution of centrality values on different draws of the
+adjacency matrices as well as the distribution of predicted centrality
+values on different draws.
+
+``` r
+plot(density(centrality_matrix_std[1, ]), ylim=c(0, 0.7), main="", xlab="Standardised node strength", cex.lab=2, frame.plot=FALSE)
+sample_ids <- sample(1:1000, size=100)
+preds <- sapply(sample_ids, function(i) rnorm(8, mean=chain[i, "beta_lifeform"] * predictor_matrix[, 1] + chain[i, "beta_droid"] * predictor_matrix[, 2], sd=exp(chain[i, "sigma"])))
+
+
+for (i in 1:length(sample_ids)) {
+  pred <- preds[, i]
+  lines(density(pred), col=rgb(56/255, 119/255, 128/255, 0.5))
+}
+for (i in 1:length(sample_ids)) {
+  lines(density(centrality_matrix_std[sample_ids[i], ]), col=rgb(0, 0, 0, 0.25))
+}
+```
+
+![](paper_example_files/figure-gfm/unnamed-chunk-26-1.png)<!-- -->
+
+The model appears to fit reasonably well, and the observed data are
+completely consistent with the predictions of the model, so we can go
+ahead with the analysis.
+
+# Interpreting the regression
+
+The regression coefficients and parameters can be summarised by
+calculating their percentile credible interval similar to before:
+
+``` r
+coefficient_quantiles <- t(apply(chain, 2, function(x) quantile(x, probs=c(0.025, 0.5, 0.975))))
+coefficient_quantiles
+```
+
+    ##                     2.5%        50%      97.5%
+    ## beta_lifeform  0.3451954  0.8472887  1.2999729
+    ## beta_droid    -1.2916676 -0.8470302 -0.3619066
+    ## sigma         -1.4857289 -0.9354197 -0.2218406
+
+A frequentist analysis (and some Bayesian ones too) would have only one
+category, lifeform or droid, and the other category would be the
+implicit reference category, absorbed by the intercept. In this type of
+analysis, the coefficients for the two categories correspond to the
+average difference between the centrality of nodes in that category
+compared to the population average (the intercept). Therefore, to look
+for a difference between the two categories, we can simply calculate the
+difference in the posterior distributions of those two categories:
+
+``` r
+beta_difference <- chain[, "beta_lifeform"] - chain[, "beta_droid"]
+quantile(beta_difference, probs=c(0.025, 0.5, 0.975))
+```
+
+    ##      2.5%       50%     97.5% 
+    ## 0.9733789 1.6945553 2.3356767
+
+The mass of probability is with there being a positive difference of
+around 1.57 standard deviations between the centralities of lifeforms
+compared to droids. Many of the benefits of Bayesian analysis only apply
+when significance testing is avoided. Though it is reasonably common for
+a result such as the one above not overlapping zero to be interpreted as
+being “significant”, using such a decision rule leaves Bayesian analysis
+open to the same flaws as frequentist analyses often have. For this
+reason we caution strongly against using such a rule.
+
+``` r
+d <- density(beta_difference)
+plot(d, lwd=2, xlab="Posterior difference in centrality between sexes", main="", cex.lab=2, frame.plot=FALSE, xlim=c(0, 3))
+polygon(d, col=rgb(56/255, 119/255, 128/255, 0.75))
+```
+
+![](paper_example_files/figure-gfm/unnamed-chunk-29-1.png)<!-- -->
+
+# Conclusion
+
+In this guide we have shown how to apply BISON to count data and how to
+conduct subsequent analyses, while maintaining uncertainty through the
+whole process. Though this process is quite hands-on, it provides a huge
+amount of flexibility for conducting animal social network analyses in a
+robust and interpretable way.

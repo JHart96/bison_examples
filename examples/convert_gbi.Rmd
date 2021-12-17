@@ -1,0 +1,42 @@
+---
+title: "Convert group-by-individual data to long format"
+output:
+  rmarkdown::github_document
+---
+
+This is a short notebook describing how to convert group-by-individual matrices to the long format used by social preference models.
+
+## Simulate some data
+
+For the example, simulate some random GBI data.
+
+```{r}
+obs <- t(sapply(1:20, function(x) rbinom(8, 1, 0.3)))
+obs
+```
+
+## Convert to long format
+
+This code loops through each observation period (row in the GBI matrix) and for each present individual iterates through all possible social events that could have occurred in that observation period. Each social event that could have theoretically been observed is included as a row in the final dataframe, but only social events that were observed are assigned `social_event=1`, the others being assigned `social_event=0`. The ID of the observation period (the row id in the GBI matrix) is also included so that pseudo-replication of data points can be accounted for by including observation period as an effect in the model.
+
+```{r}
+df <- data.frame(node_1=numeric(), node_2=numeric(), social_event=numeric(), obs_id=numeric())
+for (obs_id in 1:nrow(obs)) {
+  for (i in which(obs[obs_id, ] == 1)) {
+    for (j in 1:ncol(obs)) {
+      if (i != j) {
+        # Swap i and j if necessary to make sure node_1 < node_2, not essential but makes things a bit easier.
+        if (i < j) {
+          node_1 <- i
+          node_2 <- j
+        } else {
+          node_1 <- j
+          node_2 <- i
+        }
+        df[nrow(df) + 1, ] <- list(node_1=node_1, node_2=node_2, social_event=(obs[obs_id, i] == obs[obs_id, j]), obs_id=obs_id)
+      }
+    }
+  }
+}
+df
+```
