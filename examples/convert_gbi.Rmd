@@ -6,6 +6,8 @@ output:
 
 This is a short notebook describing how to convert group-by-individual matrices to the long format used by BISON, and a brief demonstration of how the model can be fitted.
 
+*WARNING: Group-by-individual matrices with large numbers of individuals or observations will generate very large dataframes that may be difficult to work with and fit. This is an area for future development we are currently working on. In the meantime, aggregated models and/or variational Bayes might be useful (see the paper for discussion of aggregated models and the Stan documentation for discussion of variational Bayes).*
+
 ```{r}
 library(dplyr)
 library(rstan)

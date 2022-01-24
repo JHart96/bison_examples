@@ -7,6 +7,11 @@ checking and diagnostics, visualising networks with uncertainty,
 calculating probability distributions over network centrality, and
 propagating network uncertainty into subsequent analyses.
 
+*Note: Many of the procedures presented here are stochastic, and plots
+and results may vary between compilations of this document. In
+particular, MCMC chains and model estimates may sometimes not be
+optimal, even if they were when it was originally written.*
+
 # Setup
 
 First of all we’ll load in Rstan for model fitting in Stan, dplyr for
@@ -224,15 +229,15 @@ for (dyad_id in 1:model_data$M) {
 adj_tensor[, , 1] # Print the first sample of the posterior distribution over adjacency matrices
 ```
 
-    ##      [,1]    [,2]     [,3]     [,4]       [,5]      [,6]      [,7]       [,8]
-    ## [1,]    0 3.49917 1.490543 1.737290 -1.5344500 -1.971824 -2.625206 -2.5595807
-    ## [2,]    0 0.00000 2.553160 4.148173 -0.7961201 -3.161215 -1.436231  0.1280056
-    ## [3,]    0 0.00000 0.000000 2.405226 -1.1307441 -4.753838 -2.934220 -0.6377107
-    ## [4,]    0 0.00000 0.000000 0.000000 -2.4608433 -2.681622 -2.064541 -0.5122759
-    ## [5,]    0 0.00000 0.000000 0.000000  0.0000000 -1.696294 -1.298428  0.1149345
-    ## [6,]    0 0.00000 0.000000 0.000000  0.0000000  0.000000 -2.761412 -3.5207832
-    ## [7,]    0 0.00000 0.000000 0.000000  0.0000000  0.000000  0.000000 -1.4015011
-    ## [8,]    0 0.00000 0.000000 0.000000  0.0000000  0.000000  0.000000  0.0000000
+    ##      [,1]     [,2]     [,3]     [,4]      [,5]      [,6]      [,7]      [,8]
+    ## [1,]    0 1.909798 0.663522 1.119296 -2.224694 -1.517760 -3.177595 -3.493776
+    ## [2,]    0 0.000000 1.845561 2.962745 -1.843876 -3.504085 -1.268087 -0.584585
+    ## [3,]    0 0.000000 0.000000 2.363582 -3.450659 -3.538650 -2.311433 -1.446891
+    ## [4,]    0 0.000000 0.000000 0.000000 -2.988210 -1.906546 -2.286410 -1.010627
+    ## [5,]    0 0.000000 0.000000 0.000000  0.000000 -5.763383 -2.397609 -2.868005
+    ## [6,]    0 0.000000 0.000000 0.000000  0.000000  0.000000 -3.328829 -2.228939
+    ## [7,]    0 0.000000 0.000000 0.000000  0.000000  0.000000  0.000000 -1.070141
+    ## [8,]    0 0.000000 0.000000 0.000000  0.000000  0.000000  0.000000  0.000000
 
 The adjacency matrix above corresponds to a single draw of the posterior
 adjacency matrices. You’ll notice that many of the entries are negative,
@@ -254,22 +259,22 @@ plogis(adj_tensor[, , 1]) * upper.tri(adj_tensor[, , 1])
 ```
 
     ##      [,1]      [,2]      [,3]      [,4]       [,5]        [,6]       [,7]
-    ## [1,]    0 0.9706641 0.8161597 0.8503425 0.17734353 0.122193077 0.06753374
-    ## [2,]    0 0.0000000 0.9277855 0.9844523 0.31085608 0.040651647 0.19212961
-    ## [3,]    0 0.0000000 0.0000000 0.9172249 0.24402380 0.008544909 0.05048766
-    ## [4,]    0 0.0000000 0.0000000 0.0000000 0.07864921 0.064066529 0.11259135
-    ## [5,]    0 0.0000000 0.0000000 0.0000000 0.00000000 0.154949885 0.21442976
-    ## [6,]    0 0.0000000 0.0000000 0.0000000 0.00000000 0.000000000 0.05944537
+    ## [1,]    0 0.8709965 0.6600511 0.7538580 0.09755476 0.179791536 0.04001762
+    ## [2,]    0 0.0000000 0.8636051 0.9508624 0.13659353 0.029196225 0.21958493
+    ## [3,]    0 0.0000000 0.0000000 0.9140078 0.03074922 0.028232294 0.09018053
+    ## [4,]    0 0.0000000 0.0000000 0.0000000 0.04796135 0.129369362 0.09225473
+    ## [5,]    0 0.0000000 0.0000000 0.0000000 0.00000000 0.003130639 0.08335521
+    ## [6,]    0 0.0000000 0.0000000 0.0000000 0.00000000 0.000000000 0.03459531
     ## [7,]    0 0.0000000 0.0000000 0.0000000 0.00000000 0.000000000 0.00000000
     ## [8,]    0 0.0000000 0.0000000 0.0000000 0.00000000 0.000000000 0.00000000
     ##            [,8]
-    ## [1,] 0.07178548
-    ## [2,] 0.53195778
-    ## [3,] 0.34576423
-    ## [4,] 0.37466016
-    ## [5,] 0.52870203
-    ## [6,] 0.02872663
-    ## [7,] 0.19757802
+    ## [1,] 0.02948984
+    ## [2,] 0.35787828
+    ## [3,] 0.19048049
+    ## [4,] 0.26685710
+    ## [5,] 0.05375807
+    ## [6,] 0.09718169
+    ## [7,] 0.25537631
     ## [8,] 0.00000000
 
 It will be necessary to use this transformation for the visualisations
@@ -313,7 +318,7 @@ g_range <- graph_from_adjacency_matrix(adj_range, mode="undirected", weighted=TR
 # Plot the median graph first and then the standardised width graph to show uncertainty over edges.
 coords <- igraph::layout_nicely(g_mid)
 plot(g_mid, edge.width=3 * E(g_mid)$weight, edge.color="black",  layout=coords)
-plot(g_mid, edge.width=2 * 3 * E(g_range)$weight, edge.color=rgb(0, 0, 0, 0.25), 
+plot(g_mid, edge.width=3 * E(g_range)$weight, edge.color=rgb(0, 0, 0, 0.25), 
      vertex.label=c("Rey", "Leia", "Obi-Wan", "Luke", "C-3PO", "BB-8", "R2-D2", "D-O"), 
      vertex.label.dist=4, vertex.label.color="black", layout=coords, add=TRUE)
 ```
@@ -346,20 +351,13 @@ colnames(centrality_matrix) <- c("Rey", "Leia", "Obi-Wan", "Luke", "C-3PO", "BB-
 head(centrality_matrix)
 ```
 
-    ##           Rey      Leia  Obi-Wan      Luke      C-3PO BB-8      R2-D2
-    ## [1,] 6.727002 10.328508 6.448928  8.290689 0.11493449    0 0.00000000
-    ## [2,] 5.209294  8.611437 6.478926  8.187724 0.00000000    0 0.00000000
-    ## [3,] 8.233732 10.091822 8.394216  8.296636 0.00000000    0 0.00000000
-    ## [4,] 6.644073  7.124365 5.701992  7.409651 0.00000000    0 0.06295392
-    ## [5,] 7.326999  9.170144 7.193239  8.156314 0.00000000    0 0.00000000
-    ## [6,] 8.460824 10.137984 7.850177 10.820310 0.06782419    0 0.00000000
-    ##             D-O
-    ## [1,] 0.24294012
-    ## [2,] 0.18350851
-    ## [3,] 0.00000000
-    ## [4,] 0.08575002
-    ## [5,] 0.00000000
-    ## [6,] 0.32474124
+    ##           Rey     Leia  Obi-Wan     Luke C-3PO BB-8 R2-D2       D-O
+    ## [1,] 3.692616 6.718104 4.872665 6.445622     0    0     0 0.0000000
+    ## [2,] 3.776272 5.793941 3.289305 6.833027     0    0     0 0.0000000
+    ## [3,] 5.136767 8.486342 5.276031 6.903527     0    0     0 0.0000000
+    ## [4,] 5.025523 6.275655 6.144522 8.698131     0    0     0 0.0000000
+    ## [5,] 7.336497 8.168711 7.364505 9.095417     0    0     0 0.1522755
+    ## [6,] 3.979987 6.104301 4.701860 6.698989     0    0     0 0.0000000
 
 Each column in this matrix corresponds to one of the nodes in the
 network, and each row is its centrality in one sample of the posterior
@@ -490,20 +488,20 @@ chain <- metropolis(target, c(0, 0, 0, 0), iterations=100000, thin=100, refresh=
     ## Chain: 1 | Iteration: 80000/102000 (Sampling)
     ## Chain: 1 | Iteration: 90000/102000 (Sampling)
     ## Chain: 1 | Iteration: 100000/102000 (Sampling)
-    ## Acceptance Rate: 0.233617647058824
+    ## Acceptance Rate: 0.234901960784314
 
 ``` r
 colnames(chain) <- c("intercept", "beta_lifeform", "beta_droid", "sigma")
 head(chain)
 ```
 
-    ##       intercept beta_lifeform  beta_droid     sigma
-    ## [1,] -1.3791306     2.3613626  0.47814184 -1.243644
-    ## [2,] -1.0959653     1.9214608  0.17778900 -1.377820
-    ## [3,] -0.8166918     1.7309565 -0.08854739 -1.496887
-    ## [4,] -0.3361179     1.1050362 -0.65022063 -1.507718
-    ## [5,]  0.1983263     0.8598522 -1.24906509 -1.414503
-    ## [6,]  0.1535935     0.7050113 -1.26279465 -1.596577
+    ##       intercept beta_lifeform beta_droid     sigma
+    ## [1,] -0.7315466     1.8142683 -0.1299726 -1.307683
+    ## [2,] -0.2686534     1.1067651 -0.6744972 -1.486881
+    ## [3,] -0.1905716     1.3490306 -0.6384173 -1.428492
+    ## [4,] -0.6317438     1.4614713 -0.2515317 -1.600305
+    ## [5,] -0.5905243     1.7119693 -0.3077794 -1.308987
+    ## [6,]  0.3247770     0.6103273 -1.2010990 -1.952500
 
 # Checking the regression
 
@@ -560,10 +558,10 @@ coefficient_quantiles
 ```
 
     ##                    2.5%        50%      97.5%
-    ## intercept     -2.773352  0.1167667  2.9540609
-    ## beta_lifeform -1.998163  0.7810880  3.6445119
-    ## beta_droid    -3.837226 -1.0575159  1.8477503
-    ## sigma         -2.121312 -1.6136573 -0.9471979
+    ## intercept     -2.676350  0.2566863  3.1332763
+    ## beta_lifeform -2.203349  0.6423338  3.6711486
+    ## beta_droid    -4.064972 -1.1980618  1.7179438
+    ## sigma         -2.167683 -1.6164965 -0.9254532
 
 A frequentist analysis (and some Bayesian ones too) would have only one
 category, lifeform or droid, and the other category would be the
@@ -580,7 +578,7 @@ quantile(beta_difference, probs=c(0.025, 0.5, 0.975))
 ```
 
     ##     2.5%      50%    97.5% 
-    ## 1.495468 1.841418 2.157288
+    ## 1.487579 1.840534 2.144447
 
 The mass of probability is with there being a positive difference of
 around 1.57 standard deviations between the centralities of lifeforms
@@ -589,7 +587,7 @@ when significance testing is avoided. Though it is reasonably common for
 a result such as the one above not overlapping zero to be interpreted as
 being “significant”, using such a decision rule leaves Bayesian analysis
 open to the same flaws as frequentist analyses often have. For this
-reason we caution strongly against using such a rule.
+reason we caution against using such a rule.
 
 # Conclusion
 

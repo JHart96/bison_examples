@@ -8,6 +8,11 @@ networks with uncertainty, calculating probability distributions over
 network centrality, and propagating network uncertainty into subsequent
 analyses.
 
+*Note: Many of the procedures presented here are stochastic, and plots
+and results may vary between compilations of this document. In
+particular, MCMC chains and model estimates may sometimes not be
+optimal, even if they were when it was originally written.*
+
 # Setup
 
 First of all we’ll load in Rstan for model fitting in Stan, dplyr for
@@ -30,15 +35,16 @@ source("../scripts/sampler.R")
 Now we will simulate data using the `simulate_duration()` function. The
 rows of the resulting dataframe describe observations at the dyadic
 level between nodes. In this dataframe, `event` denotes whether or not
-an undirected social event was observed in this observation period. The
-exact definition of observation period will depend on the study, but is
-commonly a sampling period where at least one of the members of the dyad
-was observed. This can also be a sampling period where both members of
-the dyad were observed, and the distinction will affect the
-interpretation of edge weights. See the paper for further discussion on
-this. `location` denotes the location at which the observation took
-place, which may be relevant if location is likely to impact the
-visibility of social events.
+an undirected social event was observed in this observation period, and
+`duration` denotes the length of such an event. The exact definition of
+observation period will depend on the study, but is commonly a sampling
+period where at least one of the members of the dyad was observed. This
+can also be a sampling period where both members of the dyad were
+observed, and the distinction will affect the interpretation of edge
+weights. See the paper for further discussion on this. `location`
+denotes the location at which the observation took place, which may be
+relevant if location is likely to impact the visibility of social
+events.
 
 ``` r
 set.seed(1)
@@ -78,9 +84,9 @@ head(df_obs_agg)
     ## 6 Rey    R2-D2                860         13          25800 Lifeform   
     ## # … with 1 more variable: node_2_type <fct>
 
-total_event_time is the total duration of social events, num_events is
-the number of social events, and total_obs_time is the total duration of
-observations.
+In our simulated data, `total_event_time` is the total duration of
+social events, `num_events` is the number of social events, and
+`total_obs_time` is the total duration of observations.
 
 # Preparing the data
 
@@ -109,6 +115,10 @@ head(df_obs)
     ## 5 Rey    Leia          3     1 B              1           2
     ## 6 Rey    Leia         59     1 D              1           4
 
+It will also be useful later to aggregate the dataframe at the dyad
+level and assign dyad IDs corresponding to each dyad. We can do this
+using:
+
 ``` r
 df_obs_agg <- df_obs_agg %>%
   group_by(node_1, node_2) %>%
@@ -129,13 +139,9 @@ head(df_obs_agg)
     ## # … with 4 more variables: node_2_type <fct>, dyad_id <int>, node_1_id <int>,
     ## #   node_2_id <int>
 
-It will also be useful later to aggregate the dataframe at the dyad
-level, assign dyad IDs corresponding to each dyad, and calculate total
-event counts for each dyad. We can do this using:
-
 Now we have all of the data in the right format for fitting the model,
 we just need to put it into a list object. The data required by the
-statistical model is defined in `binary_model.stan`.
+statistical model is defined in `duration_model.stan`.
 
 ``` r
 model_data <- list(
@@ -245,10 +251,6 @@ store the result in an 8 x 8 x 4000 tensor, as there are 8 nodes and
 4000 samples from the posterior.
 
 ``` r
-df_obs_agg$both_lifeform <- as.integer(df_obs_agg$node_1_type == "Lifeform" & df_obs_agg$node_2_type == "Lifeform")
-```
-
-``` r
 logit_p_samples <- extract(fit)$logit_p
 
 adj_tensor <- array(0, c(8, 8, num_iterations))
@@ -259,23 +261,23 @@ for (dyad_id in 1:model_data$M) {
 adj_tensor[, , 1] # Print the first sample of the posterior distribution over adjacency matrices
 ```
 
-    ##      [,1]      [,2]      [,3]      [,4]      [,5]      [,6]       [,7]
-    ## [1,]    0 0.6299539 0.6324871 0.7734152 -1.182475 -0.917310  1.6343248
-    ## [2,]    0 0.0000000 0.2783207 0.5243592 -1.434937 -1.210954  0.1463585
-    ## [3,]    0 0.0000000 0.0000000 0.4908926 -1.251841 -1.106046 -0.7085264
-    ## [4,]    0 0.0000000 0.0000000 0.0000000 -2.110295 -1.152069 -1.0876380
-    ## [5,]    0 0.0000000 0.0000000 0.0000000  0.000000 -1.571483  0.9716858
-    ## [6,]    0 0.0000000 0.0000000 0.0000000  0.000000  0.000000 -0.5067143
-    ## [7,]    0 0.0000000 0.0000000 0.0000000  0.000000  0.000000  0.0000000
-    ## [8,]    0 0.0000000 0.0000000 0.0000000  0.000000  0.000000  0.0000000
+    ##      [,1]     [,2]     [,3]      [,4]        [,5]       [,6]       [,7]
+    ## [1,]    0 1.352989 1.436333 1.8010792 -0.01140462 -0.4667570 -0.7766221
+    ## [2,]    0 0.000000 2.332313 0.6037593 -1.13781425 -0.5125763  0.5097058
+    ## [3,]    0 0.000000 0.000000 1.9091110 -0.90578464 -0.6189982 -0.6351699
+    ## [4,]    0 0.000000 0.000000 0.0000000 -0.68035050 -0.3011211 -0.8958456
+    ## [5,]    0 0.000000 0.000000 0.0000000  0.00000000 -0.4164682  1.5528491
+    ## [6,]    0 0.000000 0.000000 0.0000000  0.00000000  0.0000000 -0.1199744
+    ## [7,]    0 0.000000 0.000000 0.0000000  0.00000000  0.0000000  0.0000000
+    ## [8,]    0 0.000000 0.000000 0.0000000  0.00000000  0.0000000  0.0000000
     ##            [,8]
-    ## [1,] -0.7670941
-    ## [2,] -1.8703058
-    ## [3,]  0.2847236
-    ## [4,]  0.4496163
-    ## [5,]  0.5844590
-    ## [6,] -1.5354883
-    ## [7,]  0.0530386
+    ## [1,] -0.8162401
+    ## [2,] -1.3894768
+    ## [3,]  0.2742975
+    ## [4,]  0.7757955
+    ## [5,]  1.8077165
+    ## [6,] -1.0915465
+    ## [7,]  0.5741771
     ## [8,]  0.0000000
 
 The adjacency matrix above corresponds to a single draw of the posterior
@@ -297,15 +299,15 @@ following code:
 plogis(adj_tensor[, , 1]) * upper.tri(adj_tensor[, , 1])
 ```
 
-    ##      [,1]     [,2]      [,3]      [,4]      [,5]      [,6]      [,7]      [,8]
-    ## [1,]    0 0.652479 0.6530532 0.6842592 0.2346075 0.2855063 0.8367612 0.3171080
-    ## [2,]    0 0.000000 0.5691345 0.6281665 0.1923306 0.2295323 0.5365244 0.1335063
-    ## [3,]    0 0.000000 0.0000000 0.6203167 0.2223815 0.2486087 0.3299245 0.5707039
-    ## [4,]    0 0.000000 0.0000000 0.0000000 0.1081002 0.2401114 0.2520633 0.6105480
-    ## [5,]    0 0.000000 0.0000000 0.0000000 0.0000000 0.1720051 0.7254554 0.6420928
-    ## [6,]    0 0.000000 0.0000000 0.0000000 0.0000000 0.0000000 0.3759641 0.1771921
-    ## [7,]    0 0.000000 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.5132565
-    ## [8,]    0 0.000000 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000
+    ##      [,1]      [,2]      [,3]      [,4]      [,5]      [,6]      [,7]      [,8]
+    ## [1,]    0 0.7946179 0.8078862 0.8582803 0.4971489 0.3853841 0.3150484 0.3065624
+    ## [2,]    0 0.0000000 0.9115180 0.6465159 0.2427219 0.3745898 0.6247375 0.1994913
+    ## [3,]    0 0.0000000 0.0000000 0.8709192 0.2878632 0.3500093 0.3463392 0.5681476
+    ## [4,]    0 0.0000000 0.0000000 0.0000000 0.3361831 0.4252834 0.2899050 0.6847732
+    ## [5,]    0 0.0000000 0.0000000 0.0000000 0.0000000 0.3973622 0.8253249 0.8590857
+    ## [6,]    0 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.4700423 0.2513272
+    ## [7,]    0 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.6397265
+    ## [8,]    0 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000
 
 It will be necessary to use this transformation for the visualisations
 and analyses we have planned, so we’ll apply the transformation to the
@@ -353,7 +355,7 @@ plot(g_mid, edge.width=2 * 3 * E(g_range)$weight, edge.color=rgb(0, 0, 0, 0.25),
      vertex.label.dist=4, vertex.label.color="black", layout=coords, add=TRUE)
 ```
 
-![](duration_data_files/figure-gfm/unnamed-chunk-14-1.png)<!-- -->
+![](duration_data_files/figure-gfm/unnamed-chunk-13-1.png)<!-- -->
 
 This plot can be extended in multiple ways, for example by thresholding
 low edge weights to visualise the network more tidily, or by adding
@@ -380,20 +382,20 @@ colnames(centrality_matrix) <- c("Rey", "Leia", "Obi-Wan", "Luke", "C-3PO", "BB-
 head(centrality_matrix)
 ```
 
-    ##           Rey     Leia  Obi-Wan     Luke     C-3PO       BB-8     R2-D2
-    ## [1,] 3.670181 1.578992 1.686424 2.238283 1.5561447 0.00000000 2.8054077
-    ## [2,] 2.549897 2.079123 6.574515 6.756390 0.5105169 0.00000000 0.0000000
-    ## [3,] 5.251250 4.539426 4.753059 4.566138 4.3729239 0.00000000 4.7523576
-    ## [4,] 3.107712 1.563921 2.654649 4.204652 1.2720155 0.31536048 0.6928986
-    ## [5,] 4.122272 4.475608 3.655818 3.421413 0.8592372 0.00000000 1.0390026
-    ## [6,] 5.101773 6.399024 6.764553 6.315034 1.9747925 0.06647114 2.1034567
-    ##            D-O
-    ## [1,] 1.3718375
-    ## [2,] 0.9060369
-    ## [3,] 5.1176184
-    ## [4,] 3.4055889
-    ## [5,] 1.8999270
-    ## [6,] 3.7872131
+    ##            Rey      Leia   Obi-Wan     Luke    C-3PO     BB-8     R2-D2
+    ## [1,]  4.590402  4.798767  5.952054 5.089745 3.360566 0.000000 2.6367320
+    ## [2,] 13.820179 11.061748 12.788068 8.694140 5.998521 2.538344 8.7081275
+    ## [3,]  4.609520  5.333928  5.104937 3.797112 1.369595 0.000000 1.3122495
+    ## [4,]  4.287150  4.604827  4.423657 4.762505 2.465043 0.000000 2.4394709
+    ## [5,]  3.440103  4.431255  3.177518 2.659386 1.055953 0.000000 0.9430346
+    ## [6,]  6.104716  5.856583  5.348248 5.596898 2.403255 0.000000 2.0057466
+    ##           D-O
+    ## [1,] 3.431987
+    ## [2,] 7.387684
+    ## [3,] 1.988893
+    ## [4,] 3.225703
+    ## [5,] 1.427429
+    ## [6,] 3.642094
 
 Each column in this matrix corresponds to one of the nodes in the
 network, and each row is its centrality in one sample of the posterior
@@ -497,20 +499,20 @@ centrality_matrix_std[is.nan(centrality_matrix_std)] <-0
 head(centrality_matrix_std)
 ```
 
-    ##             Rey       Leia    Obi-Wan      Luke      C-3PO       BB-8
-    ## [1,] 1.66803309 -0.2625767 -0.1633944 0.3460885 -0.2836698 -1.7203206
-    ## [2,] 0.04609152 -0.1236452  1.4971588 1.5627336 -0.6892028 -0.8732686
-    ## [3,] 0.63282332  0.2165620  0.3414906 0.2321826  0.1191944 -2.4380115
-    ## [4,] 0.68625773 -0.4223915  0.3608981 1.4740083 -0.6320186 -1.3190255
-    ## [5,] 0.99567492  1.2040784  0.7205530 0.5822975 -0.9289140 -1.4357056
-    ## [6,] 0.41794584  0.9404126  1.0876289 0.9065854 -0.8414420 -1.6100164
-    ##           R2-D2        D-O
-    ## [1,]  0.8696643 -0.4538244
-    ## [2,] -0.8732686 -0.5465989
-    ## [3,]  0.3410803  0.5546782
-    ## [4,] -1.0479023  0.9001737
-    ## [5,] -0.8228855 -0.3150988
-    ## [6,] -0.7896227 -0.1114916
+    ##            Rey      Leia   Obi-Wan        Luke      C-3PO      BB-8       R2-D2
+    ## [1,] 0.4632801 0.5758047 1.1986203  0.73294291 -0.2008747 -2.015698 -0.59177027
+    ## [2,] 1.3407147 0.5929215 1.0609159 -0.04892189 -0.7796872 -1.717719 -0.04513006
+    ## [3,] 0.8261364 1.1844977 1.0712166  0.42424196 -0.7766388 -1.454171 -0.80500756
+    ## [4,] 0.6235228 0.8194255 0.7077026  0.91666172 -0.5001234 -2.020252 -0.51589321
+    ## [5,] 0.8592192 1.5151836 0.6854359  0.34252555 -0.7186580 -1.417509 -0.79338980
+    ## [6,] 1.0029276 0.8915819 0.6634757  0.77505279 -0.6580381 -1.736456 -0.83641280
+    ##              D-O
+    ## [1,] -0.16230486
+    ## [2,] -0.40309378
+    ## [3,] -0.47027524
+    ## [4,] -0.03104436
+    ## [5,] -0.47280775
+    ## [6,] -0.10213089
 
 Now we’re in a position to fit the model. To do this, we define the
 target function, which is simply a function that maps candidate
@@ -541,20 +543,20 @@ chain <- metropolis(target, c(0, 0, 0, 0), iterations=100000, thin=100, refresh=
     ## Chain: 1 | Iteration: 80000/102000 (Sampling)
     ## Chain: 1 | Iteration: 90000/102000 (Sampling)
     ## Chain: 1 | Iteration: 100000/102000 (Sampling)
-    ## Acceptance Rate: 0.231813725490196
+    ## Acceptance Rate: 0.228519607843137
 
 ``` r
 colnames(chain) <- c("intercept", "beta_lifeform", "beta_droid", "sigma")
 head(chain)
 ```
 
-    ##        intercept beta_lifeform beta_droid      sigma
-    ## [1,] -0.65606140     1.1321631 -0.2003659 -0.6388602
-    ## [2,] -1.12811924     1.3090276  0.7711949 -0.3482194
-    ## [3,] -0.43377421     1.1407170  0.0163191 -0.3771899
-    ## [4,] -0.61025953     0.7920225 -0.2348089 -0.6186749
-    ## [5,] -0.04808641     0.8849769 -0.8093936 -0.5050234
-    ## [6,]  0.76519156    -0.3926609 -1.5614124 -0.7854922
+    ##       intercept beta_lifeform beta_droid       sigma
+    ## [1,] -0.3231046     0.6481360 -0.3221333 -0.54718967
+    ## [2,] -1.1113709     0.8159387  0.7257524  0.08682922
+    ## [3,] -0.7227057     1.9666992  0.4234891 -0.18172689
+    ## [4,]  0.4691291     0.2564554 -1.5031375 -0.72811267
+    ## [5,]  1.0173916    -0.2139330 -1.7129112 -0.40052833
+    ## [6,]  0.4708770     0.9484775 -1.6291662 -0.72317784
 
 # Checking the regression
 
@@ -569,7 +571,7 @@ for (i in 1:4) {
 }
 ```
 
-![](duration_data_files/figure-gfm/unnamed-chunk-22-1.png)<!-- -->
+![](duration_data_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
 
 These chains appear to be quite healthy. Ideally we would run multiple
 additional chains starting at different points to check that they
@@ -594,7 +596,7 @@ for (i in sample_ids) {
 }
 ```
 
-![](duration_data_files/figure-gfm/unnamed-chunk-23-1.png)<!-- -->
+![](duration_data_files/figure-gfm/unnamed-chunk-22-1.png)<!-- -->
 
 The model appears to fit reasonably well, and the observed data are
 completely consistent with the predictions of the model, so we can go
@@ -610,11 +612,11 @@ coefficient_quantiles <- t(apply(chain, 2, function(x) quantile(x, probs=c(0.025
 coefficient_quantiles
 ```
 
-    ##                     2.5%        50%     97.5%
-    ## intercept     -3.0312059  0.1560344 3.2299054
-    ## beta_lifeform -2.4718954  0.5923425 3.7672954
-    ## beta_droid    -3.7664876 -0.8175320 2.3187532
-    ## sigma         -0.9047409 -0.3838446 0.2522323
+    ##                     2.5%         50%     97.5%
+    ## intercept     -3.5300562  0.04018068 3.1322534
+    ## beta_lifeform -2.4406386  0.70584853 4.2344502
+    ## beta_droid    -3.8856530 -0.73335042 2.9830723
+    ## sigma         -0.9155959 -0.37137835 0.3065001
 
 A frequentist analysis (and some Bayesian ones too) would have only one
 category, lifeform or droid, and the other category would be the
@@ -631,7 +633,7 @@ quantile(beta_difference, probs=c(0.025, 0.5, 0.975))
 ```
 
     ##      2.5%       50%     97.5% 
-    ## 0.1361281 1.4430411 2.5414739
+    ## 0.2028548 1.4391780 2.5209736
 
 The mass of probability is with there being a positive difference of
 around 1.57 standard deviations between the centralities of lifeforms
@@ -644,9 +646,8 @@ reason we caution strongly against using such a rule.
 
 # Conclusion
 
-In this guide we have shown how to apply the edge weight model to binary
-presence/absence data and how to conduct subsequent analyses, while
-maintaining uncertainty through the whole process. Though this process
-is quite hands-on, it provides a huge amount of flexibility for
-conducting animal social network analyses in a robust and interpretable
-way.
+In this guide we have shown how to apply the edge weight model to
+duration data and how to conduct subsequent analyses, while maintaining
+uncertainty through the whole process. Though this process is quite
+hands-on, it provides a huge amount of flexibility for conducting animal
+social network analyses in a robust and interpretable way.

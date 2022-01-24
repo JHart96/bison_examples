@@ -6,6 +6,8 @@ output:
 
 This example covers fitting a edge weight model to presence/absence (binary) data with an observation-level location effect, basic model checking and diagnostics, visualising networks with uncertainty, calculating probability distributions over network centrality, and propagating network uncertainty into subsequent analyses.
 
+*Note: Many of the procedures presented here are stochastic, and plots and results may vary between compilations of this document. In particular, MCMC chains and model estimates may sometimes not be optimal, even if they were when it was originally written.*
+
 # Setup
 
 First of all we'll load in Rstan for model fitting in Stan, dplyr for handling the data, and igraph for network plotting and computing network centrality. We also load in two custom R files: "simulations.R" to generate synthetic data for this example; and "sampler.R" to allow fitting models with uncertainty over network features respectively.
@@ -161,7 +163,7 @@ g_range <- graph_from_adjacency_matrix(adj_range, mode="undirected", weighted=TR
 # Plot the median graph first and then the standardised width graph to show uncertainty over edges.
 coords <- igraph::layout_nicely(g_mid)
 plot(g_mid, edge.width=3 * E(g_mid)$weight, edge.color="black",  layout=coords)
-plot(g_mid, edge.width=2 * 3 * E(g_range)$weight, edge.color=rgb(0, 0, 0, 0.25), 
+plot(g_mid, edge.width=3 * E(g_range)$weight, edge.color=rgb(0, 0, 0, 0.25), 
      vertex.label=c("Rey", "Leia", "Obi-Wan", "Luke", "C-3PO", "BB-8", "R2-D2", "D-O"), 
      vertex.label.dist=4, vertex.label.color="black", layout=coords, add=TRUE)
 ```
@@ -292,7 +294,7 @@ beta_difference <- chain[, "beta_lifeform"] - chain[, "beta_droid"]
 quantile(beta_difference, probs=c(0.025, 0.5, 0.975))
 ```
 
-The mass of probability is with there being a positive difference of around 1.57 standard deviations between the centralities of lifeforms compared to droids. Many of the benefits of Bayesian analysis only apply when significance testing is avoided. Though it is reasonably common for a result such as the one above not overlapping zero to be interpreted as being "significant", using such a decision rule leaves Bayesian analysis open to the same flaws as frequentist analyses often have. For this reason we caution strongly against using such a rule.
+The mass of probability is with there being a positive difference of around 1.57 standard deviations between the centralities of lifeforms compared to droids. Many of the benefits of Bayesian analysis only apply when significance testing is avoided. Though it is reasonably common for a result such as the one above not overlapping zero to be interpreted as being "significant", using such a decision rule leaves Bayesian analysis open to the same flaws as frequentist analyses often have. For this reason we caution against using such a rule.
 
 # Conclusion
 

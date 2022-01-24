@@ -5,6 +5,14 @@ This is a short notebook describing how to convert group-by-individual
 matrices to the long format used by BISON, and a brief demonstration of
 how the model can be fitted.
 
+*WARNING: Group-by-individual matrices with large numbers of individuals
+or observations will generate very large dataframes that may be
+difficult to work with and fit. This is an area for future development
+we are currently working on. In the meantime, aggregated models and/or
+variational Bayes might be useful (see the paper for discussion of
+aggregated models and the Stan documentation for discussion of
+variational Bayes).*
+
 ``` r
 library(dplyr)
 ```
@@ -45,26 +53,26 @@ obs
 ```
 
     ##       [,1] [,2] [,3] [,4] [,5] [,6] [,7] [,8]
-    ##  [1,]    0    0    0    1    1    0    0    0
-    ##  [2,]    1    1    1    0    0    0    0    1
-    ##  [3,]    0    0    1    0    0    1    0    0
-    ##  [4,]    0    0    0    0    0    0    0    0
-    ##  [5,]    0    0    0    1    0    0    1    1
-    ##  [6,]    0    0    0    0    1    0    0    0
-    ##  [7,]    0    0    0    0    1    1    1    0
-    ##  [8,]    1    0    1    0    1    0    1    1
-    ##  [9,]    1    0    1    1    0    0    1    0
-    ## [10,]    1    0    0    0    0    0    0    1
-    ## [11,]    0    1    0    1    1    1    0    1
-    ## [12,]    0    0    0    0    0    1    1    1
-    ## [13,]    0    1    0    0    0    1    0    0
-    ## [14,]    0    0    0    0    0    1    1    1
-    ## [15,]    1    0    0    1    0    1    0    0
-    ## [16,]    0    0    1    1    1    1    1    0
-    ## [17,]    0    0    0    0    0    0    0    0
-    ## [18,]    0    1    0    1    1    0    0    0
-    ## [19,]    1    0    0    0    0    0    0    0
-    ## [20,]    0    1    0    0    0    0    0    0
+    ##  [1,]    0    1    0    1    0    0    0    1
+    ##  [2,]    1    0    0    1    0    1    0    0
+    ##  [3,]    0    0    0    1    0    0    0    1
+    ##  [4,]    1    0    0    0    0    0    0    0
+    ##  [5,]    0    0    1    0    0    0    0    0
+    ##  [6,]    0    1    0    1    0    1    0    0
+    ##  [7,]    0    0    0    0    1    0    0    0
+    ##  [8,]    0    1    0    0    1    0    0    0
+    ##  [9,]    1    0    0    1    1    0    0    1
+    ## [10,]    0    0    0    1    0    0    0    0
+    ## [11,]    0    0    0    0    0    0    0    1
+    ## [12,]    0    0    0    0    0    0    0    0
+    ## [13,]    1    1    1    0    0    0    0    0
+    ## [14,]    0    0    0    0    1    0    0    0
+    ## [15,]    0    0    0    0    0    0    1    0
+    ## [16,]    0    0    0    1    0    0    0    0
+    ## [17,]    0    0    0    0    1    0    1    0
+    ## [18,]    0    0    0    1    0    0    0    0
+    ## [19,]    0    0    0    0    1    0    0    0
+    ## [20,]    1    1    1    1    0    0    0    0
 
 ## Convert to long format
 
@@ -101,12 +109,12 @@ head(df)
 ```
 
     ##   node_1 node_2 social_event obs_id
-    ## 1      1      4            0      1
-    ## 2      2      4            0      1
-    ## 3      3      4            0      1
-    ## 4      4      5            1      1
-    ## 5      4      6            0      1
-    ## 6      4      7            0      1
+    ## 1      1      2            0      1
+    ## 2      2      3            0      1
+    ## 3      2      4            1      1
+    ## 4      2      5            0      1
+    ## 5      2      6            0      1
+    ## 6      2      7            0      1
 
 ## Prepare dataframe for Stan model
 
@@ -125,12 +133,12 @@ head(df)
     ## # Groups:   node_1, node_2 [6]
     ##   node_1 node_2 social_event obs_id dyad_id
     ##    <dbl>  <dbl>        <dbl>  <int>   <int>
-    ## 1      1      4            0      1       3
-    ## 2      2      4            0      1       9
-    ## 3      3      4            0      1      14
-    ## 4      4      5            1      1      19
-    ## 5      4      6            0      1      20
-    ## 6      4      7            0      1      21
+    ## 1      1      2            0      1       1
+    ## 2      2      3            0      1       8
+    ## 3      2      4            1      1       9
+    ## 4      2      5            0      1      10
+    ## 5      2      6            0      1      11
+    ## 6      2      7            0      1      12
 
 Prepare data list for model.
 

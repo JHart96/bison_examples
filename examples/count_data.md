@@ -8,6 +8,11 @@ visualising networks with uncertainty, calculating probability
 distributions over network centrality, and propagating network
 uncertainty into subsequent analyses.
 
+*Note: Many of the procedures presented here are stochastic, and plots
+and results may vary between compilations of this document. In
+particular, MCMC chains and model estimates may sometimes not be
+optimal, even if they were when it was originally written.*
+
 # Setup
 
 First of all we’ll load in Rstan for model fitting in Stan, dplyr for
@@ -27,11 +32,11 @@ source("../scripts/sampler.R")
 
 # Simulating data
 
-Now we will simulate data using the `simulate_binary()` function. The
+Now we will simulate data using the `simulate_count()` function. The
 rows of the resulting dataframe describe observations at the dyadic
-level between nodes. In this dataframe, `event` denotes whether or not
-an undirected social event was observed in this observation period. The
-exact definition of observation period will depend on the study, but is
+level between nodes. In this dataframe, `event_count` denotes the number
+of social events observed in each observation period. The exact
+definition of observation period will depend on the study, but is
 commonly a sampling period where at least one of the members of the dyad
 was observed. This can also be a sampling period where both members of
 the dyad were observed, and the distinction will affect the
@@ -107,7 +112,7 @@ head(df_agg)
 
 Now we have all of the data in the right format for fitting the model,
 we just need to put it into a list object. The data required by the
-statistical model is defined in `binary_model.stan`.
+statistical model is defined in `count_model.stan`.
 
 ``` r
 model_data <- list(
@@ -224,53 +229,53 @@ for (dyad_id in 1:model_data$M) {
 adj_tensor[, , 1] # Print the first sample of the posterior distribution over adjacency matrices
 ```
 
-    ##      [,1]      [,2]     [,3]     [,4]       [,5]      [,6]        [,7]
-    ## [1,]    0 0.3888219 1.945788 1.609707  0.6244848 1.2066911  1.17293878
-    ## [2,]    0 0.0000000 2.092089 1.756321 -0.2205671 1.1020841  1.14777047
-    ## [3,]    0 0.0000000 0.000000 1.291345  1.0804066 1.0452480  0.69981998
-    ## [4,]    0 0.0000000 0.000000 0.000000  0.8898372 0.9693547  1.23241904
-    ## [5,]    0 0.0000000 0.000000 0.000000  0.0000000 0.6766154  0.35883036
-    ## [6,]    0 0.0000000 0.000000 0.000000  0.0000000 0.0000000 -0.01262078
-    ## [7,]    0 0.0000000 0.000000 0.000000  0.0000000 0.0000000  0.00000000
-    ## [8,]    0 0.0000000 0.000000 0.000000  0.0000000 0.0000000  0.00000000
+    ##      [,1]       [,2]     [,3]     [,4]       [,5]      [,6]      [,7]
+    ## [1,]    0 -0.1376994 2.016697 1.533417  0.7194427 1.2207109 0.9869817
+    ## [2,]    0  0.0000000 2.286424 1.853660 -0.4793365 1.3381779 1.0634206
+    ## [3,]    0  0.0000000 0.000000 1.517676  1.1670634 1.4075149 0.8584062
+    ## [4,]    0  0.0000000 0.000000 0.000000  1.0201657 1.0335086 1.4948356
+    ## [5,]    0  0.0000000 0.000000 0.000000  0.0000000 0.7397377 0.5721509
+    ## [6,]    0  0.0000000 0.000000 0.000000  0.0000000 0.0000000 0.0121763
+    ## [7,]    0  0.0000000 0.000000 0.000000  0.0000000 0.0000000 0.0000000
+    ## [8,]    0  0.0000000 0.000000 0.000000  0.0000000 0.0000000 0.0000000
     ##            [,8]
-    ## [1,] -1.6302939
-    ## [2,]  0.7232529
-    ## [3,]  0.8550568
-    ## [4,]  0.4511401
-    ## [5,]  1.2710819
-    ## [6,]  0.2108423
-    ## [7,]  0.5060542
+    ## [1,] -1.3558219
+    ## [2,]  0.8285060
+    ## [3,]  1.0120581
+    ## [4,]  0.4527363
+    ## [5,]  1.4190248
+    ## [6,]  0.4243735
+    ## [7,]  0.4693067
     ## [8,]  0.0000000
 
 The adjacency matrix above corresponds to a single draw of the posterior
 adjacency matrices. You’ll notice that many of the entries are negative,
-because the edge weights are on the logit scale. These can be
-transformed back to the \[0, 1\] range using the logistic function. If
-there are no additional effects (such as location in our case), the
+because the edge weights are on the log scale. These can be transformed
+back to the original range (>0) using the exponential function. If there
+are no additional effects (such as location in our case), the
 transformed edge weights will be probabilities and the median will be
 approximately the same as the simple ratio index for each dyad. However,
 when additional effects are included, the transformed values can no
-longer be interpreted as probabilities, though they may be useful for
-visualisation and analysis purposes. We can logistic transform an
-adjacency matrix using the logistic function (`plogis()` in base R).
-This will also map 0 values to 0.5, so it will be necessary to set those
-values back to zero again. This transformation can be achieved using the
-following code:
+longer be interpreted as event rates, though they may be useful for
+visualisation and analysis purposes. We can use the exponential
+transform to create an adjacency matrix using the function (`exp()` in
+base R). This will also map 0 values to , so it will be necessary to set
+those values back to zero again. This transformation can be achieved
+using the following code:
 
 ``` r
-plogis(adj_tensor[, , 1]) * upper.tri(adj_tensor[, , 1])
+exp(adj_tensor[, , 1]) * upper.tri(adj_tensor[, , 1])
 ```
 
-    ##      [,1]      [,2]      [,3]      [,4]      [,5]      [,6]      [,7]      [,8]
-    ## [1,]    0 0.5959991 0.8749867 0.8333706 0.6512379 0.7697130 0.7636758 0.1637901
-    ## [2,]    0 0.0000000 0.8901319 0.8527483 0.4450807 0.7506504 0.7591034 0.6733229
-    ## [3,]    0 0.0000000 0.0000000 0.7843747 0.7465709 0.7398613 0.6681479 0.7016268
-    ## [4,]    0 0.0000000 0.0000000 0.0000000 0.7088566 0.7249909 0.7742417 0.6109103
-    ## [5,]    0 0.0000000 0.0000000 0.0000000 0.0000000 0.6629829 0.5887573 0.7809279
-    ## [6,]    0 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.4968448 0.5525162
-    ## [7,]    0 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.6238810
-    ## [8,]    0 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000
+    ##      [,1]      [,2]     [,3]     [,4]      [,5]     [,6]     [,7]      [,8]
+    ## [1,]    0 0.8713606 7.513466 4.633982 2.0532885 3.389597 2.683124 0.2577354
+    ## [2,]    0 0.0000000 9.839689 6.383138 0.6191941 3.812091 2.896261 2.2898951
+    ## [3,]    0 0.0000000 0.000000 4.561612 3.2125447 4.085789 2.359397 2.7512575
+    ## [4,]    0 0.0000000 0.000000 0.000000 2.7736543 2.810911 4.458604 1.5726094
+    ## [5,]    0 0.0000000 0.000000 0.000000 0.0000000 2.095386 1.772075 4.1330878
+    ## [6,]    0 0.0000000 0.000000 0.000000 0.0000000 0.000000 1.012251 1.5286324
+    ## [7,]    0 0.0000000 0.000000 0.000000 0.0000000 0.000000 0.000000 1.5988854
+    ## [8,]    0 0.0000000 0.000000 0.000000 0.0000000 0.000000 0.000000 0.0000000
 
 It will be necessary to use this transformation for the visualisations
 and analyses we have planned, so we’ll apply the transformation to the
@@ -279,7 +284,7 @@ entire tensor:
 ``` r
 adj_tensor_transformed <- adj_tensor
 for (i in 1:dim(adj_tensor)[3]) {
-  adj_tensor_transformed[, , i] <- plogis(adj_tensor[, , i]) * upper.tri(adj_tensor[, , i])
+  adj_tensor_transformed[, , i] <- exp(adj_tensor[, , i]) * upper.tri(adj_tensor[, , i])
 }
 ```
 
@@ -288,12 +293,12 @@ for (i in 1:dim(adj_tensor)[3]) {
 The aim of our network visualisation is to plot a network where the
 certainty in edge weights (edge weights) can be seen. To do this we’ll
 use a semi-transparent line around each edge with a width that
-corresponds to a standardised uncertainty measures. The uncertainty
-measure will simply be the normalised difference between the 97.5% and
-2.5% credible interval estimate for each edge weight. We can calculate
-this from the transformed adjacency tensor object, generate two igraph
-objects for the main network and the uncertainty in edges, and plot them
-with the same coordinates.
+corresponds to a uncertainty measures. The uncertainty measure will
+simply be the difference between the 97.5% and 2.5% credible interval
+estimate for each edge weight. We can calculate this from the
+transformed adjacency tensor object, generate two igraph objects for the
+main network and the uncertainty in edges, and plot them with the same
+coordinates.
 
 ``` r
 # Calculate lower, median, and upper quantiles of edge weights. Lower and upper give credible intervals.
@@ -302,18 +307,18 @@ adj_lower <- adj_quantiles[1, , ]
 adj_mid <- adj_quantiles[2, , ]
 adj_upper <- adj_quantiles[3, , ]
 
-# Calculate standardised width/range of credible intervals.
-adj_range <- ((adj_upper - adj_lower)/adj_mid)
+# Calculate width/range of credible intervals.
+adj_range <- ((adj_upper - adj_lower))
 adj_range[is.nan(adj_range)] <- 0
 
-# Generate two igraph objects, one form the median and one from the standardised width.
+# Generate two igraph objects, one form the median and one from the width.
 g_mid <- graph_from_adjacency_matrix(adj_mid, mode="undirected", weighted=TRUE)
 g_range <- graph_from_adjacency_matrix(adj_range, mode="undirected", weighted=TRUE)
 
-# Plot the median graph first and then the standardised width graph to show uncertainty over edges.
+# Plot the median graph first and then the width graph to show uncertainty over edges.
 coords <- igraph::layout_nicely(g_mid)
-plot(g_mid, edge.width=3 * E(g_mid)$weight, edge.color="black",  layout=coords)
-plot(g_mid, edge.width=2 * 3 * E(g_range)$weight, edge.color=rgb(0, 0, 0, 0.25), 
+plot(g_mid, edge.width=E(g_mid)$weight, edge.color="black",  layout=coords)
+plot(g_mid, edge.width=2 * E(g_range)$weight, edge.color=rgb(0, 0, 0, 0.25), 
      vertex.label=c("Rey", "Leia", "Obi-Wan", "Luke", "C-3PO", "BB-8", "R2-D2", "D-O"), 
      vertex.label.dist=4, vertex.label.color="black", layout=coords, add=TRUE)
 ```
@@ -345,13 +350,20 @@ colnames(centrality_matrix) <- c("Rey", "Leia", "Obi-Wan", "Luke", "C-3PO", "BB-
 head(centrality_matrix)
 ```
 
-    ##           Rey      Leia   Obi-Wan      Luke    C-3PO     BB-8    R2-D2      D-O
-    ## [1,] 6.948431  7.210339  9.009753  8.200123 4.901256 5.210836 5.117833 4.017428
-    ## [2,] 9.271843  9.949705 12.218536 11.017358 7.598594 7.768520 7.990548 5.864979
-    ## [3,] 8.333923  8.837156  9.322010  8.487967 4.568646 5.628296 4.932234 3.964413
-    ## [4,] 9.757895 10.215854 12.093086 11.262266 7.357669 8.038541 7.809732 6.226689
-    ## [5,] 9.456858  9.482341 10.207148  9.535948 5.518692 6.430164 6.019957 5.312678
-    ## [6,] 9.153037  9.769223 10.488500  9.706447 6.083325 6.376768 6.567181 5.919509
+    ##            Rey      Leia   Obi-Wan      Luke    C-3PO      BB-8     R2-D2
+    ## [1,]  6.477249  7.370188 10.265840  8.905999 5.637585  6.176200  5.457278
+    ## [2,]  9.520275 10.018110 11.561369  9.965599 6.595644  7.075981  6.941025
+    ## [3,]  9.215569 10.144120 11.285325 10.132950 6.476675  6.916214  6.944390
+    ## [4,]  5.375014  5.545578  6.369225  5.987620 2.639316  3.409481  2.879437
+    ## [5,] 12.308795 13.020319 14.811919 13.816886 9.748317 10.946399 10.218309
+    ## [6,]  5.680619  5.956548  5.286201  4.289901 1.490510  2.415106  1.933077
+    ##           D-O
+    ## [1,] 4.606005
+    ## [2,] 4.981481
+    ## [3,] 5.629634
+    ## [4,] 2.276644
+    ## [5,] 8.742730
+    ## [6,] 1.458736
 
 Each column in this matrix corresponds to one of the nodes in the
 network, and each row is its centrality in one sample of the posterior
@@ -455,20 +467,20 @@ centrality_matrix_std[is.nan(centrality_matrix_std)] <-0
 head(centrality_matrix_std)
 ```
 
-    ##            Rey      Leia  Obi-Wan      Luke      C-3PO       BB-8      R2-D2
-    ## [1,] 0.3509577 0.4988716 1.515103 1.0578592 -0.8051984 -0.6303615 -0.6828854
-    ## [2,] 0.1513382 0.4803181 1.581426 0.9984710 -0.6607219 -0.5782533 -0.4704990
-    ## [3,] 0.7189098 0.9486700 1.170039 0.7892412 -1.0001979 -0.5163951 -0.8341951
-    ## [4,] 0.3233822 0.5468629 1.462939 1.0575047 -0.8479108 -0.5156498 -0.6273070
-    ## [5,] 0.8159278 0.8280775 1.173640 0.8536350 -1.0616505 -0.6270932 -0.8226654
-    ## [6,] 0.5912540 0.9094288 1.280836 0.8770136 -0.9938278 -0.8423053 -0.7439831
+    ##             Rey      Leia   Obi-Wan      Luke      C-3PO       BB-8      R2-D2
+    ## [1,] -0.2027939 0.2678023 1.7938653 1.0772034 -0.6453125 -0.3614523 -0.7403377
+    ## [2,]  0.5304173 0.7527205 1.4418467 0.7292721 -0.7755461 -0.5610566 -0.6213201
+    ## [3,]  0.4165788 0.8599399 1.4048380 0.8546064 -0.8911783 -0.6813089 -0.6678556
+    ## [4,]  0.6379419 0.7401375 1.2336357 1.0049925 -1.0011832 -0.5397299 -0.8573119
+    ## [5,]  0.2857436 0.6206444 1.4639163 0.9955733 -0.9194244 -0.3555101 -0.6982079
+    ## [6,]  1.0898135 1.2318738 0.8867495 0.3738098 -1.0674411 -0.5914180 -0.8395878
     ##            D-O
-    ## [1,] -1.304346
-    ## [2,] -1.502079
-    ## [3,] -1.276072
-    ## [4,] -1.399821
-    ## [5,] -1.159871
-    ## [6,] -1.078416
+    ## [1,] -1.188975
+    ## [2,] -1.496334
+    ## [3,] -1.295620
+    ## [4,] -1.218483
+    ## [5,] -1.392735
+    ## [6,] -1.083800
 
 Now we’re in a position to fit the model. To do this, we define the
 target function, which is simply a function that maps candidate
@@ -499,20 +511,20 @@ chain <- metropolis(target, c(0, 0, 0, 0), iterations=100000, thin=100, refresh=
     ## Chain: 1 | Iteration: 80000/102000 (Sampling)
     ## Chain: 1 | Iteration: 90000/102000 (Sampling)
     ## Chain: 1 | Iteration: 100000/102000 (Sampling)
-    ## Acceptance Rate: 0.231392156862745
+    ## Acceptance Rate: 0.235794117647059
 
 ``` r
 colnames(chain) <- c("intercept", "beta_lifeform", "beta_droid", "sigma")
 head(chain)
 ```
 
-    ##       intercept beta_lifeform   beta_droid      sigma
-    ## [1,]  1.4296254   -0.79038870 -2.070353847 -1.1567064
-    ## [2,]  0.5052134   -0.05715052 -1.033996971 -1.0873873
-    ## [3,] -0.7200746    1.69171100  0.006346761 -1.1292841
-    ## [4,] -0.3002469    1.59470319 -0.951014682 -1.2249229
-    ## [5,]  0.1960285    0.84342446 -1.267537000 -1.3621135
-    ## [6,]  0.8327115    0.26584086 -1.596906471 -0.6336673
+    ##      intercept beta_lifeform beta_droid      sigma
+    ## [1,] 1.8337597    -1.2484528  -2.684788 -1.0603501
+    ## [2,] 3.0031025    -2.1149827  -3.948051 -1.1309034
+    ## [3,] 1.1172094    -0.2282031  -2.004843 -1.2169187
+    ## [4,] 1.8962029    -0.9344411  -2.774360 -1.4819398
+    ## [5,] 1.4106822    -0.4793489  -2.216118 -1.4624400
+    ## [6,] 0.7478852     0.4659354  -1.562720 -0.6071865
 
 # Checking the regression
 
@@ -568,11 +580,11 @@ coefficient_quantiles <- t(apply(chain, 2, function(x) quantile(x, probs=c(0.025
 coefficient_quantiles
 ```
 
-    ##                    2.5%        50%     97.5%
-    ## intercept     -2.816392  0.2436177  2.741131
-    ## beta_lifeform -1.950923  0.6487364  3.715604
-    ## beta_droid    -3.734745 -1.0962505  1.850773
-    ## sigma         -1.520235 -1.0081618 -0.303181
+    ##                    2.5%         50%     97.5%
+    ## intercept     -3.018877  0.09176639  3.147228
+    ## beta_lifeform -2.262220  0.80203564  3.953545
+    ## beta_droid    -3.897475 -0.95746502  2.036436
+    ## sigma         -1.495467 -0.99783162 -0.273194
 
 A frequentist analysis (and some Bayesian ones too) would have only one
 category, lifeform or droid, and the other category would be the
@@ -589,22 +601,21 @@ quantile(beta_difference, probs=c(0.025, 0.5, 0.975))
 ```
 
     ##     2.5%      50%    97.5% 
-    ## 1.159501 1.747547 2.299188
+    ## 1.158692 1.750894 2.376250
 
 The mass of probability is with there being a positive difference of
-around 1.57 standard deviations between the centralities of lifeforms
+around 1.75 standard deviations between the centralities of lifeforms
 compared to droids. Many of the benefits of Bayesian analysis only apply
 when significance testing is avoided. Though it is reasonably common for
 a result such as the one above not overlapping zero to be interpreted as
 being “significant”, using such a decision rule leaves Bayesian analysis
 open to the same flaws as frequentist analyses often have. For this
-reason we caution strongly against using such a rule.
+reason we caution against using such a rule.
 
 # Conclusion
 
-In this guide we have shown how to apply the edge weight model to binary
-presence/absence data and how to conduct subsequent analyses, while
-maintaining uncertainty through the whole process. Though this process
-is quite hands-on, it provides a huge amount of flexibility for
-conducting animal social network analyses in a robust and interpretable
-way.
+In this guide we have shown how to apply the edge weight model to count
+data and how to conduct subsequent analyses, while maintaining
+uncertainty through the whole process. Though this process is quite
+hands-on, it provides a huge amount of flexibility for conducting animal
+social network analyses in a robust and interpretable way.
