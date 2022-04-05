@@ -11,6 +11,8 @@ This is a short notebook describing how to convert group-by-individual matrices 
 ```{r}
 library(dplyr)
 library(rstan)
+library(INLA)
+library(igraph)
 ```
 
 ## Simulate some data
@@ -59,6 +61,15 @@ df <- df %>%
   mutate(obs_id=as.integer(obs_id))
 head(df)
 ```
+Prepare aggregated version of the matrix solely for post-processing purposes, as it isn't needed for model fitting.
+
+```{r}
+df_agg <- df %>%
+  group_by(node_1, node_2) %>%
+  summarise(event_count=sum(social_event), dyad_id=cur_group_id()) %>%
+  mutate(node_1_id=as.integer(node_1), node_2_id=as.integer(node_2))
+head(df_agg)
+```
 
 Prepare data list for model.
 
@@ -88,22 +99,30 @@ Do a quick visualisation of the parameter values.
 ```{r}
 plot(fit, pars="logit_p")
 ```
-The rest of the analysis can proceed in the same way as the other analyses.
+## Compare to INLA
+
+INLA is an approximation of marginal posteriors that should work quite well with many BISoN models. The R-INLA package does a lot of the hard work for us. The code below prepares the previous dataframe for INLA, 
 
 ```{r}
+# Prepare dataframe by assigning factors
 df_inla <- df
 df_inla$dyad_id <- as.factor(df$dyad_id)
 df_inla$obs_id <- as.factor(df$obs_id)
+
+# Set priors to match Stan model
 prior.fixed <- list(mean=0, prec=1)
 prior.random <- list(prec=list(prior="normal", param=c(0, 1)))
+
+# Fit the INLA model
 fit_inla <- inla(social_event ~ 0 + dyad_id + f(obs_id, model="iid", hyper=prior.random), 
                  family="binomial", 
                  data=df_inla,
                  control.fixed=prior.fixed,
                  control.compute=list(config = TRUE)
 )
-summary(fit_inla)$fixed
 ```
+
+Now we have the model fit using both algorithms, we can compare the mean estimates for each dyad's edge weight:
 
 ```{r}
 est_inla <- summary(fit_inla)$fixed[1:28, 1]
@@ -111,6 +130,10 @@ est_stan <- summary(fit)$summary[1:28, 1]
 
 plot(est_stan, est_inla)
 ```
+
+There's not much between them, because this model is a class of model that can be approximated well by INLA.
+
+We can now post-process the output of INLA to get posteriors over edge weights, as we would do with the Stan model. It's a little more complicated in INLA, but the code below converts from the INLA output to the Stan output, ready for use in downstream visualistions and analyses.
 
 ```{r}
 # How many samples to draw from posteriors. 4000 to match Stan, but samples are really cheap here so no reason not to increase this.
@@ -129,9 +152,11 @@ for (i in 1:model_data$M) {
 logit_p_samples
 ```
 
+Now we can convert the edge posteriors to a posterior over adjacency matrices:
+
 ```{r}
 p_samples <- plogis(logit_p_samples)
-adj_tensor <- array(0, c(8, 8, num_iterations))
+adj_tensor <- array(0, c(8, 8, num_samples))
 for (dyad_id in 1:model_data$M) {
   dyad_row <- df_agg[df_agg$dyad_id == dyad_id, ]
   adj_tensor[dyad_row$node_1_id, dyad_row$node_2_id, ] <- p_samples[, dyad_id]
@@ -139,9 +164,11 @@ for (dyad_id in 1:model_data$M) {
 adj_tensor[, , 1] # Print the first sample of the posterior distribution over adjacency matrices
 ```
 
+Use standard code to generate visualisations:
+
 ```{r}
 # Calculate lower, median, and upper quantiles of edge weights. Lower and upper give credible intervals.
-adj_quantiles <- apply(adj_tensor_transformed, c(1, 2), function(x) quantile(x, probs=c(0.025, 0.5, 0.975)))
+adj_quantiles <- apply(adj_tensor, c(1, 2), function(x) quantile(x, probs=c(0.025, 0.5, 0.975)))
 adj_lower <- adj_quantiles[1, , ]
 adj_mid <- adj_quantiles[2, , ]
 adj_upper <- adj_quantiles[3, , ]
@@ -156,8 +183,10 @@ g_range <- graph_from_adjacency_matrix(adj_range, mode="undirected", weighted=TR
 
 # Plot the median graph first and then the standardised width graph to show uncertainty over edges.
 coords <- igraph::layout_nicely(g_mid)
-plot(g_mid, edge.width=3 * E(g_mid)$weight, edge.color="black",  layout=coords)
-plot(g_mid, edge.width=20 * E(g_range)$weight, edge.color=rgb(0, 0, 0, 0.25), 
+plot(g_mid, edge.width=10 * E(g_mid)$weight, edge.color="black",  layout=coords)
+plot(g_mid, edge.width=30 * E(g_range)$weight, edge.color=rgb(0, 0, 0, 0.25), 
      vertex.label=c("Rey", "Leia", "Obi-Wan", "Luke", "C-3PO", "BB-8", "R2-D2", "D-O"), 
      vertex.label.dist=4, vertex.label.color="black", layout=coords, add=TRUE)
 ```
+
+

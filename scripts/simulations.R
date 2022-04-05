@@ -90,6 +90,54 @@ simulate_count <- function() {
   list(df=df, p=p)
 }
 
+# Simulate count data for the INLA example with duration.
+simulate_count_inla <- function() {
+  ## code to prepare `example.4.2` dataset goes here
+
+  node_names <- c("Rey", "Leia", "Obi-Wan", "Luke", "C-3PO", "BB-8", "R2-D2", "D-O")
+  node_types <- c("Lifeform", "Lifeform", "Lifeform", "Lifeform", "Droid", "Droid", "Droid", "Droid")
+  location_names <- c("A", "B", "C", "D", "E", "F")
+
+  n <- 8
+
+  node_types_binary <- 1 * (node_types == "Lifeform")
+  node_types_binary %*% t(node_types_binary)
+
+  p <- matrix(runif(n^2, max=5), n, n) + 5 * node_types_binary %*% t(node_types_binary)
+  p <- p * upper.tri(p)
+
+
+  d <- matrix(sample(1:50, size=n^2, replace=TRUE), n, n)
+  d <- d * upper.tri(d)
+
+  beta_loc <- rnorm(6, -2, 2)
+
+  df <- data.frame(matrix(nrow=0, ncol=7))
+  colnames(df) <- c("node_1", "node_2", "type_1", "type_2", "event_count", "duration", "location")
+  for (i in 1:n) {
+    for (j in 1:n) {
+      if (i < j) {
+        for (k in 1:d[i, j]) {
+          duration <- round(runif(1, min=1, max=10))
+          location_id <- sample(1:6, size=1)
+          # At least one of them was visible, did they associate?
+          log_p <- log(p[i, j])
+          log_pn <- log_p + beta_loc[location_id]
+          df[nrow(df) + 1, ] <- c(node_names[i], node_names[j], node_types[i], node_types[j], rpois(1, exp(log_pn) * duration), duration, location_names[location_id])
+        }
+      }
+    }
+  }
+
+  df$node_1 <- factor(df$node_1, levels=node_names)
+  df$node_2 <- factor(df$node_2, levels=node_names)
+  df$type_1 <- factor(df$type_1, levels=c("Lifeform", "Droid"))
+  df$type_2 <- factor(df$type_2, levels=c("Lifeform", "Droid"))
+  df$event_count <- as.integer(df$event_count)
+  df$location <- factor(df$location, levels=location_names)
+  list(df=df, p=p)
+}
+
 simulate_duration <- function() {
   # Define node names and node types
   node_names <- c("Rey", "Leia", "Obi-Wan", "Luke", "C-3PO", "BB-8", "R2-D2", "D-O")

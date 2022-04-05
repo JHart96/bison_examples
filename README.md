@@ -9,11 +9,28 @@ The BISoN framework is a Bayesian modelling framework for capturing uncertainty 
 The preprint can be found at: [https://www.biorxiv.org/content/10.1101/2021.12.20.473541v1](https://www.biorxiv.org/content/10.1101/2021.12.20.473541v1).
 
 ## Examples
-* [Binary Data](examples/binary_data.md)
-* [Count Data](examples/count_data.md)
-* [Duration Data](examples/duration_data.md)
-* [Gambit of the Group Data Conversion](examples/convert_gbi.md)
-* [Partial Pooling](models/pooled_count_model.stan)
+
+### Edge Weight Models
+* [Binary Edge Weight Model (Stan)](examples/ewm_binary.md)
+* [Count Edge Weight Model (Stan)]()
+* [Duration Edge Weight Model (Stan)]()
+* [Binary Edge Weight Model (INLA)]()
+* [Count Edge Weight Model (INLA)]()
+* [Group Edge Weight Model (INLA)]()
+* [Binary Directed Edge Weight Model (Stan)]()
+* [Binary Edge Weight Model with Partial Pooling (Stan)]()
+
+
+### Social Network Analysis
+* [Dyadic Regression (Stan)]()
+* [Nodal Regression (Stan)]()
+* [Dyadic Regression (Metropolis-Hastings)](examples/dyadic_regression_metropolis.md)
+* [Nodal Regression (Metropolis-Hastings)]()
+* [Non-random Edge Weight Tests]()
+
+### Data processing and diagnostics
+* [Prior Predictive Checks]()
+* [Group Data Conversion](examples/convert_gbi.md)
 
 ## R Package (In Development)
 
