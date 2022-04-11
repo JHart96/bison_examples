@@ -169,6 +169,21 @@ est_inla <- exp(summary(fit_inla)$fixed[1:28, 1])
 # est_inla/(summary(fit_inla)$fixed[29, 1])
 est_stan <- exp(summary(fit)$summary[1:28, 1])
 
+num_samples <- 200
+log_rate_samples_inla <- matrix(0, num_samples, 28)
+inla_samples <- inla.posterior.sample(num_samples, fit_inla)
+for (i in 1:num_samples) {
+  log_rate_samples_inla[i, ] <- tail(inla_samples[[i]]$latent, 28)
+}
+log_rate_samples_inla
+round(cor(log_rate_samples_inla), 2)
+
+log_rate_samples_stan <- extract(fit)$log_p
+round(cor(log_rate_samples_stan), 2)
+
+plot(cor(log_rate_samples_stan), cor(log_rate_samples_inla))
+abline(a=0, b=1)
+
 # est_sri <- df_agg$event_count_total/df_agg$total_duration
 
 true <- t(data$p)[lower.tri(data$p)]

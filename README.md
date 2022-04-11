@@ -12,7 +12,7 @@ The preprint can be found at: [https://www.biorxiv.org/content/10.1101/2021.12.2
 
 ### Edge Weight Models
 * [Binary Edge Weight Model (Stan)](examples/ewm_binary.md)
-* [Count Edge Weight Model (Stan)]()
+* [Count Edge Weight Model (Stan)](examples/ewm_count.md)
 * [Duration Edge Weight Model (Stan)]()
 * [Binary Edge Weight Model (INLA)]()
 * [Count Edge Weight Model (INLA)]()
@@ -22,11 +22,11 @@ The preprint can be found at: [https://www.biorxiv.org/content/10.1101/2021.12.2
 
 
 ### Social Network Analysis
-* [Dyadic Regression (Stan)]()
+* [Dyadic Regression (Stan)](examples/dyadic_regression_stan.md)
 * [Nodal Regression (Stan)]()
-* [Dyadic Regression (Metropolis-Hastings)](examples/dyadic_regression_metropolis.md)
-* [Nodal Regression (Metropolis-Hastings)]()
-* [Non-random Edge Weight Tests]()
+* [Non-random Edge Weight Tests (Stan)]()
+* [Dyadic Regression (Metropolis - EXPERIMENTAL)](examples/dyadic_regression_metropolis.md)
+* [Nodal Regression (Metropolis - EXPERIMENTAL)]()
 
 ### Data processing and diagnostics
 * [Prior Predictive Checks]()

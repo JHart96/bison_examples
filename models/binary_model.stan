@@ -8,24 +8,24 @@ data {
 }
 
 parameters {
-  vector[M] logit_p; // Logit edge weights for each dyad.
+  vector[M] logit_edge_weight; // Logit edge weights for each dyad.
   vector[L] beta_loc; // Parameters for location effects.
   real<lower=0> loc_sigma; // Hyperparameter for location effect adaptive prior standard deviation.
 }
 
 transformed parameters {
-  vector[N] logit_pn = logit_p[dyad_ids] + beta_loc[location_ids] * loc_sigma; // Logit probability of a social event for each observation.
+  vector[N] logit_pn = logit_edge_weight[dyad_ids] + beta_loc[location_ids] * loc_sigma; // Logit probability of a social event for each observation.
 }
 
 model {
   // Main model
-  event ~ bernoulli(inv_logit(logit_pn));
+  event ~ bernoulli_logit(logit_pn);
 
   // Adaptive prior over location effects
   beta_loc ~ normal(0, 1);
 
   // Priors
-  logit_p ~ normal(0, 1);
+  logit_edge_weight ~ normal(0, 1);
   loc_sigma ~ normal(0, 1);
 }
 
