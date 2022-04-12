@@ -1,6 +1,7 @@
 ---
 title: "Dyadic Regression with Metropolis"
-output: html_notebook
+output:
+  rmarkdown::github_document
 ---
 
 Dyadic regression is a regression analysis often used in social network analysis to determine factors that may be associated with edge weight, for example, age or sex. In this notebook we will use edge weight posteriors from a previously-run edge weight model from binary data to conduct a dyadic regression of edge weight against dyad type. In our toy example, dyad type will be one of `lifeform-lifeform`, `lifeform-droid`, and `droid-droid`. For this example we will be using a Metropolis-Hastings sampler to maintain uncertainty over the data. The sampler is still experimental so should be used with caution, but can provide flexibility over the type of model being fitted. Alternatively, an approximation of uncertainty over edge weights can be used instead, and is shown in `dyadic_regression.Rmd`.
@@ -19,8 +20,7 @@ We'll load edge weight posteriors in from a previous run model using the `readRD
 data <- readRDS("../example_data/binary.RData")
 df <- data$df
 df_agg <- data$df_agg
-logit_p_samples <- data$logit_p_samples
-adj_tensor <- data$adj_tensor
+logit_edge_samples <- data$logit_edge_samples
 ```
 
 # Preparing the data
@@ -145,7 +145,7 @@ b_diff_summary <- round(quantile(b_diff, probs=c(0.5, 0.025, 0.975)), 2)
 b_diff_summary
 ```
 
-This gives us an estimate that lifeform-lifeform edge weights are generally around ~1.7 logit-scale units stronger than lifeform-droid edges, with a 95% credible interval of around ~(0.6, 2.8).
+This gives us an estimate that lifeform-lifeform edge weights are generally around ~2.9 logit-scale units stronger than lifeform-droid edges, with a 95% credible interval of around ~(0.3, 4.8).
 
 # Conclusion
 

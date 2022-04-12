@@ -61,11 +61,11 @@ model_data <- list(
   num_obs=nrow(df), # Number of observations
   num_dyads=nrow(df_agg), # Number of dyads
   num_locations=6, # Number of locations
-  dyad_ids=df_obs$dyad_id, # Vector of dyad IDs corresponding to each observation
-  location_ids=df_obs$location_id, # Vector of location IDs corresponding to each observation
-  durations=df_obs$duration, # Vector of event durations corresponding to each observation
-  num_events=df_obs_agg$num_events, # Vector of event counts corresponding to each dyad
-  total_obs_time=df_obs_agg$total_event_time # Vector of total observation times corresponding to each dyad
+  dyad_ids=df$dyad_id, # Vector of dyad IDs corresponding to each observation
+  location_ids=df$location_id, # Vector of location IDs corresponding to each observation
+  durations=df$duration, # Vector of event durations corresponding to each observation
+  num_events=df_agg$num_events, # Vector of event counts corresponding to each dyad
+  total_obs_time=df_agg$total_event_time # Vector of total observation times corresponding to each dyad
 )
 ```
 
@@ -138,7 +138,7 @@ edge_list
 logit_adj_tensor <- array(0, c(8, 8, num_iterations))
 adj_tensor <- array(0, c(8, 8, num_iterations))
 for (dyad_id in 1:model_data$num_dyads) {
-  dyad_row <- df_obs_agg[df_obs_agg$dyad_id == dyad_id, ]
+  dyad_row <- df_agg[df_agg$dyad_id == dyad_id, ]
   logit_adj_tensor[dyad_row$node_1_id, dyad_row$node_2_id, ] <- logit_edge_samples[, dyad_id]
   adj_tensor[dyad_row$node_1_id, dyad_row$node_2_id, ] <- edge_samples[, dyad_id]
 }

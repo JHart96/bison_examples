@@ -10,26 +10,27 @@ The preprint can be found at: [https://www.biorxiv.org/content/10.1101/2021.12.2
 
 ## Examples
 
+This is a non-exhaustive list of some example BISoN models and auxiliary scripts. Some examples are still in development and should be checked carefully before use in real analysis, but should be a good basis for beginning to work with BISoN.
+
 ### Edge Weight Models
 * [Binary Edge Weight Model (Stan)](examples/ewm_binary.md)
 * [Count Edge Weight Model (Stan)](examples/ewm_count.md)
 * [Duration Edge Weight Model (Stan)](examples/ewm_duration.md)
 * [Binary Edge Weight Model (INLA)](examples/ewm_binary_inla.md)
-* [Count Edge Weight Model (INLA)]()
-* [Group Edge Weight Model (INLA)]()
-* [Binary Directed Edge Weight Model (Stan)]()
-* [Binary Edge Weight Model with Partial Pooling (Stan)]()
-
+* ~~[Count Edge Weight Model (INLA)]()~~
+* ~~[Group Edge Weight Model (INLA)]()~~
+* ~~[Binary Directed Edge Weight Model (Stan)]()~~
+* ~~[Binary Edge Weight Model with Partial Pooling (Stan)]()~~
 
 ### Social Network Analysis
 * [Dyadic Regression (Stan)](examples/dyadic_regression_stan.md)
 * [Nodal Regression (Stan)](examples/nodal_regression_stan.md)
-* [Non-random Edge Weight Tests (Stan)]()
+* ~~[Non-random Edge Weight Tests (Stan)]()~~
 * [Dyadic Regression (Metropolis)](examples/dyadic_regression_metropolis.md)
-* [Nodal Regression (Metropolis)]()
+* ~~[Nodal Regression (Metropolis)]()~~
 
 ### Data processing and diagnostics
-* [Prior Predictive Checks]()
+* ~~[Prior Predictive Checks]()~~
 * [Group Data Conversion](examples/convert_gbi.md)
 
 ## R Package (In Development)
