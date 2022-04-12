@@ -10,9 +10,9 @@ The preprint can be found at: [https://www.biorxiv.org/content/10.1101/2021.12.2
 
 ## Examples
 
-This is a non-exhaustive list of some example BISoN models and auxiliary scripts. Some examples are still in development and should be checked carefully before use in real analysis, but should be a good basis for beginning to work with BISoN.
+This is a non-exhaustive list of some example BISoN models and auxiliary scripts. The examples are still in development and should be checked carefully before use in real analysis, but should be a good basis for beginning to work with BISoN. Please get in touch if you have any requests or spot any errors.
 
-*Note that most of these examples depend on stochastic functions for various purposes, so the outputs might not always match exactly with the text of these notebooks. But if you spot any errors please do get in touch.*
+*Note that most of these examples depend on stochastic functions for various purposes, so the outputs might not always match exactly with the text of these notebooks.*
 
 ### Edge Weight Models
 * [Binary Edge Weight Model (Stan)](examples/ewm_binary.md)

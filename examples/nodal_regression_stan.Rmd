@@ -1,6 +1,7 @@
 ---
 title: "Nodal Regression with Stan"
-output: html_notebook
+output:
+  rmarkdown::github_document
 ---
 
 Nodal regression is a regression-based analysis often used in social network analysis to determine factors that may be associated with node-level network properties, for example if age or sex predicts network centrality. In this notebook we will use edge weight posteriors from a previously-run edge weight model to conduct a nodal regression of eigenvector centrality against node type. In our toy example, node type will be either `lifeform` or `droid`.
