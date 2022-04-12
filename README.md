@@ -13,8 +13,8 @@ The preprint can be found at: [https://www.biorxiv.org/content/10.1101/2021.12.2
 ### Edge Weight Models
 * [Binary Edge Weight Model (Stan)](examples/ewm_binary.md)
 * [Count Edge Weight Model (Stan)](examples/ewm_count.md)
-* [Duration Edge Weight Model (Stan)]()
-* [Binary Edge Weight Model (INLA)]()
+* [Duration Edge Weight Model (Stan)](examples/ewm_duration.md)
+* [Binary Edge Weight Model (INLA)](examples/ewm_binary_inla.md)
 * [Count Edge Weight Model (INLA)]()
 * [Group Edge Weight Model (INLA)]()
 * [Binary Directed Edge Weight Model (Stan)]()
@@ -25,8 +25,8 @@ The preprint can be found at: [https://www.biorxiv.org/content/10.1101/2021.12.2
 * [Dyadic Regression (Stan)](examples/dyadic_regression_stan.md)
 * [Nodal Regression (Stan)]()
 * [Non-random Edge Weight Tests (Stan)]()
-* [Dyadic Regression (Metropolis - EXPERIMENTAL)](examples/dyadic_regression_metropolis.md)
-* [Nodal Regression (Metropolis - EXPERIMENTAL)]()
+* [Dyadic Regression (Metropolis)](examples/dyadic_regression_metropolis.md)
+* [Nodal Regression (Metropolis)]()
 
 ### Data processing and diagnostics
 * [Prior Predictive Checks]()

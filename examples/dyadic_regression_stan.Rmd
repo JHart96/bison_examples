@@ -86,7 +86,7 @@ The chains are stationary and well-mixed so we should be able to proceed with mo
 We will run a brief diagnostic check by comparing the density of expected edge weights (draws of which are shown in black) against the density of predicted edge weights from the regression model (draws of which are shown in blue).
 
 ```{r}
-params <- extract(fit_dyadic)
+params <- rstan::extract(fit_dyadic)
 plot(density(logit_edge_samples[1, ]), main="Posterior predictive density of responses (edge weights)", ylim=c(0, 0.8), col=rgb(0, 0, 0, 0.25))
 for (i in 1:100) {
   j <- sample(1:4000, 1)
@@ -109,8 +109,8 @@ round(summary(fit_dyadic)$summary[1:13, c(1, 4, 8)], 2)
 At this point it becomes clear that the regression we've conducted is not exactly the same as what might be expected from standard frequentist regressions, where categories are interpreted relative to a reference category. Instead, a parameter is estimated for each category, and we can use *contrasts* to calculate the magnitude of differences between categories of interest. Contrasts are easily calculated as the statistic of interest from the posteriors of the model. Namely, if we're interest in whether lifeform-lifeform edges are stronger than lifeform-droid edges, we simply compute the difference in posteriors between `b_ll` and `b_ld`. This can be done using the following code:
 
 ```{r}
-params <- extract(fit_dyadic)
-beta_diff <- params$beta_dyadtype[, 1] - params$beta_dyadtype[, 2]
+params <- rstan::extract(fit_dyadic)
+beta_diff <- params$beta_dyadtype[, 1] - params$beta_dyadtype[, 3]
 plot(density(beta_diff), main="Posterior difference between dyad types")
 abline(v=0, lty=2)
 ```
@@ -120,7 +120,7 @@ beta_diff_summary <- round(quantile(beta_diff, probs=c(0.5, 0.025, 0.975)), 2)
 beta_diff_summary
 ```
 
-This gives us an estimate that lifeform-lifeform edge weights are generally around ~1.7 logit-scale units stronger than lifeform-droid edges, with a 95% credible interval of around ~(0.7, 2.7).
+This gives us an estimate that lifeform-lifeform edge weights are generally around ~2.8 logit-scale units stronger than lifeform-droid edges, with a 95% credible interval of around ~(0.7, 2.7).
 
 # Conclusion
 

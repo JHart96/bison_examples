@@ -1,10 +1,10 @@
 ---
-title: "Count Data Example"
+title: "Duration Data Example"
 output:
   rmarkdown::github_document
 ---
 
-This example covers fitting a edge weight model to count data (where the count of social events per observation is recorded) with an observation-level location effect, basic model checking and diagnostics, visualising networks with uncertainty, calculating probability distributions over network centrality, and propagating network uncertainty into subsequent analyses.
+This example covers fitting a edge weight model to duration data (where the duration of social events is recorded) with an observation-level location effect, basic model checking and diagnostics, visualising networks with uncertainty, calculating probability distributions over network centrality, and propagating network uncertainty into subsequent analyses.
 
 *Note: Many of the procedures presented here are stochastic, and plots and results may vary between compilations of this document. In particular, MCMC chains and model estimates may sometimes not be optimal, even if they were when it was originally written.*
 
@@ -23,14 +23,17 @@ source("../scripts/sampler.R")
 
 # Simulating data
 
-Now we will simulate data using the `simulate_count()` function. The rows of the resulting dataframe describe observations at the dyadic level between nodes. In this dataframe, `event_count` denotes the number of social events observed in each observation period. The exact definition of observation period will depend on the study, but is commonly a sampling period where at least one of the members of the dyad was observed. This can also be a sampling period where both members of the dyad were observed, and the distinction will affect the interpretation of edge weights. See the paper for further discussion on this. `location` denotes the location at which the observation took place, which may be relevant if location is likely to impact the visibility of social events.
+Now we will simulate data using the `simulate_duration()` function. The rows of the resulting dataframe describe observations at the dyadic level between nodes. In this dataframe, `event` denotes whether or not an undirected social event was observed in this observation period, and `duration` denotes the length of such an event. The exact definition of observation period will depend on the study, but is commonly a sampling period where at least one of the members of the dyad was observed. This can also be a sampling period where both members of the dyad were observed, and the distinction will affect the interpretation of edge weights. See the paper for further discussion on this. `location` denotes the location at which the observation took place, which may be relevant if location is likely to impact the visibility of social events.
 
 ```{r}
 set.seed(1)
-data <- simulate_count()
-df <- data$df
+data <- simulate_duration()
+df <- data$df_obs
+df_agg <- data$df_obs_agg
 head(df)
+head(df_agg)
 ```
+In our simulated data, `total_event_time` is the total duration of social events, `num_events` is the number of social events, and `total_obs_time` is the total duration of observations.
 
 # Preparing the data
 
@@ -40,31 +43,29 @@ Computationally it's easier to work with dyad IDs rather than pairs of nodes in 
 df <- df %>%
   group_by(node_1, node_2) %>%
   mutate(dyad_id=cur_group_id()) %>%
-  mutate(location_id=as.integer(location), duration=as.integer(duration))
+  mutate(location_id=as.integer(location), location_id=ifelse(is.na(location_id), 0, location_id))
 head(df)
 ```
-
-It will also be useful later to aggregate the dataframe at the dyad level, assign dyad IDs corresponding to each dyad, and calculate total event counts for each dyad. We can do this using:
-
+It will also be useful later to aggregate the dataframe at the dyad level and assign dyad IDs corresponding to each dyad. We can do this using:
 ```{r, message=FALSE}
-df_agg <- df %>%
+df_agg <- df_agg %>%
   group_by(node_1, node_2) %>%
-  summarise(event_count_total=sum(event_count), dyad_id=cur_group_id()) %>%
-  mutate(node_1_id=as.integer(node_1), node_2_id=as.integer(node_2))
+  mutate(dyad_id=cur_group_id(), node_1_id=as.integer(node_1), node_2_id=as.integer(node_2))
 head(df_agg)
 ```
 
-Now we have all of the data in the right format for fitting the model, we just need to put it into a list object. The data required by the statistical model is defined in `count_model.stan`.
+Now we have all of the data in the right format for fitting the model, we just need to put it into a list object. The data required by the statistical model is defined in `duration_model.stan`.
 
 ```{r}
 model_data <- list(
   num_obs=nrow(df), # Number of observations
   num_dyads=nrow(df_agg), # Number of dyads
   num_locations=6, # Number of locations
-  dyad_ids=df$dyad_id, # Vector of dyad IDs corresponding to each observation
-  location_ids=df$location_id, # Vector of location IDs corresponding to each observation
-  event_count=df$event_count, # Vector of event counts corresponding to each observation,
-  durations=df$duration
+  dyad_ids=df_obs$dyad_id, # Vector of dyad IDs corresponding to each observation
+  location_ids=df_obs$location_id, # Vector of location IDs corresponding to each observation
+  durations=df_obs$duration, # Vector of event durations corresponding to each observation
+  num_events=df_obs_agg$num_events, # Vector of event counts corresponding to each dyad
+  total_obs_time=df_obs_agg$total_event_time # Vector of total observation times corresponding to each dyad
 )
 ```
 
@@ -73,7 +74,7 @@ model_data <- list(
 To fit the model, we first must compile it and load it into memory using the function `stan_model()` and providing the filepath to the model. The working directory will need to be set to the directory of the model for this to work properly.
 
 ```{r, warning=FALSE, message=FALSE, results='hide'}
-edge_model <- stan_model("../models/edge_count.stan")
+edge_model <- stan_model("../models/edge_duration.stan")
 ```
 
 Compiling the model may take a minute or two, but once this is done, the model can be fit using `sampling()`. The argument `cores` sets the number of CPU cores to be used for fitting the model, if your computer has 4 or more cores, it's worth setting this to 4.
@@ -100,16 +101,13 @@ event_pred <- extract(fit_edge)$event_pred
 num_iterations <- dim(event_pred)[1]
 
 # Plot the density of the observed event counts
-plot(density(df_agg$event_count_total), main="", xlab="Dyadic event counts", ylim=c(0, 0.007))
+plot(density(df$duration), main="", xlab="Dyadic event durations", ylim=c(0, 0.04))
 
 # Plot the densities of the predicted event counts, repeat for 10 samples
 df_copy <- df
 for (i in 1:20) {
-  df_copy$event_count <- event_pred[sample(1:num_iterations, size=1), ]
-  df_agg_copy <- df_copy %>% 
-    group_by(node_1, node_2) %>%
-    summarise(event_count_total=sum(event_count))
-  lines(density(df_agg_copy$event_count_total), col=rgb(0, 0, 1, 0.5))
+  event_durations_pred <- event_pred[sample(1:num_iterations, size=1), ]
+  lines(density(event_durations_pred), col=rgb(0, 0, 1, 0.5))
 }
 ```
 
@@ -117,16 +115,12 @@ This plot shows that the observed data falls well within the predicted densities
 
 # Extracting edge weights
 
-The main purpose of this part of the framework is to estimate edge weights of dyads. We can access these using the `logit_p` quantity. This will give a distribution of logit-scale edge weights for each dyad, akin to an edge list. We'll apply the logistic function `plogis` to get the edge weights back to their original scale:
+The main purpose of this part of the framework is to estimate edge weights of dyads. We can access these using the `logit_p` quantity. This will give a distribution of logit-scale edge weights for each dyad, akin to an edge list. A more useful format for network data is usually adjacency matrices, rather than edge lists, so instead we'll convert the distribution of edge lists to a distribution of adjacency matrices, and store the result in an 8 x 8 x 4000 tensor, as there are 8 nodes and 4000 samples from the posterior. 
 
 ```{r}
-log_edge_samples <- extract(fit_edge)$log_edge # Logit scale edge weights
-edge_samples <- exp(log_edge_samples) # (0, 1) scale edge weights
-```
+logit_edge_samples <- extract(fit_edge)$logit_edge
+edge_samples <- plogis(logit_edge_samples)
 
-We can summarise the distribution over edge lists by calculating the credible intervals, indicating likely values for each edge. We'll use the 89% credible interval in this example, but there's no reason to choose this interval over any other. The distribution over edge lists can be summarised in the following code:
-
-```{r}
 dyad_name <- do.call(paste, c(df_agg[c("node_1", "node_2")], sep=" <-> "))
 edge_lower <- apply(edge_samples, 2, function(x) quantile(x, probs=0.025))
 edge_upper <- apply(edge_samples, 2, function(x) quantile(x, probs=0.975))
@@ -140,24 +134,22 @@ rownames(edge_list) <- dyad_name
 edge_list
 ```
 
-In social network analysis, a more useful format for network data is usually adjacency matrices, rather than edge lists, so now we'll convert the distribution of edge lists to a distribution of adjacency matrices, and store the result in an 8 x 8 x 4000 tensor, as there are 8 nodes and 4000 samples from the posterior. 
-
 ```{r}
+logit_adj_tensor <- array(0, c(8, 8, num_iterations))
 adj_tensor <- array(0, c(8, 8, num_iterations))
-log_adj_tensor <- array(0, c(8, 8, num_iterations))
 for (dyad_id in 1:model_data$num_dyads) {
-  dyad_row <- df_agg[df_agg$dyad_id == dyad_id, ]
+  dyad_row <- df_obs_agg[df_obs_agg$dyad_id == dyad_id, ]
+  logit_adj_tensor[dyad_row$node_1_id, dyad_row$node_2_id, ] <- logit_edge_samples[, dyad_id]
   adj_tensor[dyad_row$node_1_id, dyad_row$node_2_id, ] <- edge_samples[, dyad_id]
-  log_adj_tensor[dyad_row$node_1_id, dyad_row$node_2_id, ] <- log_edge_samples[, dyad_id]
 }
 adj_tensor[, , 1] # Print the first sample of the posterior distribution over adjacency matrices
 ```
 
-The adjacency matrix above corresponds to a single draw of the posterior adjacency matrices. You'll notice the edges have been transformed back to the >0 range from the log-scale scale using the exponential function. If there are no additional effects (such as location in our case), the transformed edge weights will be probabilities and the median will be approximately the same as the simple ratio index for each dyad. However, when additional effects are included, the transformed values can no longer be interpreted directly as rates, though they will be useful for visualisation and analysis purposes.
+The adjacency matrix above corresponds to a single draw of the posterior adjacency matrices. You'll notice the edges have been transformed back to the [0, 1] range from the logit scale using the logistic function. If there are no additional effects (such as location in our case), the transformed edge weights will be proportions and the median will be approximately the same as the simple ratio index for each dyad. However, when additional effects are included, the transformed values can no longer be interpreted as proportions, though they will be useful for visualisation and analysis purposes.
 
 # Visualising uncertainty
 
-The aim of our network visualisation is to plot a network where the certainty in edge weights (edge weights) can be seen. To do this we'll use a semi-transparent line around each edge with a width that corresponds to a uncertainty measures. The uncertainty measure will simply be the difference between the 97.5% and 2.5% credible interval estimate for each edge weight. We can calculate this from the transformed adjacency tensor object, generate two igraph objects for the main network and the uncertainty in edges, and plot them with the same coordinates.
+The aim of our network visualisation is to plot a network where the certainty in edge weights (edge weights) can be seen. To do this we'll use a semi-transparent line around each edge with a width that corresponds to a standardised uncertainty measures. The uncertainty measure will simply be the normalised difference between the 97.5% and 2.5% credible interval estimate for each edge weight. We can calculate this from the transformed adjacency tensor object, generate two igraph objects for the main network and the uncertainty in edges, and plot them with the same coordinates.
 
 ```{r}
 # Calculate lower, median, and upper quantiles of edge weights. Lower and upper give credible intervals.
@@ -166,22 +158,20 @@ adj_lower <- adj_quantiles[1, , ]
 adj_mid <- adj_quantiles[2, , ]
 adj_upper <- adj_quantiles[3, , ]
 
-# Calculate width/range of credible intervals.
-adj_range <- ((adj_upper - adj_lower))
-adj_range[is.nan(adj_range)] <- 0
+# Calculate standardised width/range of credible intervals.
+adj_range <- adj_upper - adj_lower
 
-# Generate two igraph objects, one form the median and one from the width.
+# Generate two igraph objects, one form the median and one from the standardised width.
 g_mid <- graph_from_adjacency_matrix(adj_mid, mode="undirected", weighted=TRUE)
 g_range <- graph_from_adjacency_matrix(adj_range, mode="undirected", weighted=TRUE)
 
-# Plot the median graph first and then the width graph to show uncertainty over edges.
+# Plot the median graph first and then the standardised width graph to show uncertainty over edges.
 coords <- igraph::layout_nicely(g_mid)
-plot(g_mid, edge.width=0.1 * E(g_mid)$weight, edge.color="black",  layout=coords)
-plot(g_mid, edge.width=E(g_range)$weight, edge.color=rgb(0, 0, 0, 0.25), 
+plot(g_mid, edge.width=3 * E(g_mid)$weight, edge.color="black",  layout=coords)
+plot(g_mid, edge.width=20 * E(g_range)$weight, edge.color=rgb(0, 0, 0, 0.25), 
      vertex.label=c("Rey", "Leia", "Obi-Wan", "Luke", "C-3PO", "BB-8", "R2-D2", "D-O"), 
      vertex.label.dist=4, vertex.label.color="black", layout=coords, add=TRUE)
 ```
-
 This plot can be extended in multiple ways, for example by thresholding low edge weights to visualise the network more tidily, or by adding halos around nodes to show uncertainty around network centrality, and so on.
 
 # Next Steps

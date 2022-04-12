@@ -136,12 +136,12 @@ summary_matrix
 At this point it becomes clear that the regression we've conducted is not exactly the same as what might be expected from standard frequentist regressions, where categories are interpreted relative to a reference category. Instead, a parameter is estimated for each category, and we can use *contrasts* to calculate the magnitude of differences between categories of interest. Contrasts are easily calculated as the statistic of interest from the posteriors of the model. Namely, if we're interest in whether lifeform-lifeform edges are stronger than lifeform-droid edges, we simply compute the difference in posteriors between `b_ll` and `b_ld`. This can be done using the following code:
 
 ```{r}
-b_diff <- chain[, "b_ll"] - chain[, "b_ld"]
+b_diff <- chain[, "b_ll"] - chain[, "b_dd"]
 plot(density(b_diff), main="Posterior difference between dyad types")
 abline(v=0, lty=2)
 ```
 ```{r}
-b_diff_summary <- round(quantile(b_diff, probs=c(0.5, 0.05, 0.95)), 2)
+b_diff_summary <- round(quantile(b_diff, probs=c(0.5, 0.025, 0.975)), 2)
 b_diff_summary
 ```
 

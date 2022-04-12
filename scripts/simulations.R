@@ -12,7 +12,7 @@ simulate_binary <- function() {
   for (i in 1:n) {
     for (j in 1:n) {
       if (i < j) {
-        logit_p[i, j] <- -2 + 2 * (node_types[i] == node_types[j]) + node_effects[i] + node_effects[j] + rnorm(1, 0, 1)
+        logit_p[i, j] <- 5 * (node_types[i] == "Lifeform") * (node_types[j] == "Lifeform") - 5 * (node_types[i] == "Droid") * (node_types[j] == "Droid") + node_effects[i] + node_effects[j] + rnorm(1, 0, 1)
       }
     }
   }
