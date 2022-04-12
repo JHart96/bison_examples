@@ -23,7 +23,7 @@ The preprint can be found at: [https://www.biorxiv.org/content/10.1101/2021.12.2
 
 ### Social Network Analysis
 * [Dyadic Regression (Stan)](examples/dyadic_regression_stan.md)
-* [Nodal Regression (Stan)]()
+* [Nodal Regression (Stan)](examples/nodal_regression_stan.md)
 * [Non-random Edge Weight Tests (Stan)]()
 * [Dyadic Regression (Metropolis)](examples/dyadic_regression_metropolis.md)
 * [Nodal Regression (Metropolis)]()
