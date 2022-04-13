@@ -106,7 +106,7 @@ The model can be fitted using the following code:
 
 ```{r}
 model_data <- list(
-  num_nodes = 8, # Number of dyads
+  num_nodes = 8, # Number of nodes
   centrality_mu = centrality_mu, # Sample means of logit edge weights
   centrality_cov = centrality_cov, # Sample covariance of logit edge weights
   node_type = c(1, 1, 1, 1, 2, 2, 2, 2) # Integer node types corresponding to "lifeform" and "droid"
