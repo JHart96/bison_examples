@@ -1,5 +1,5 @@
 ---
-title: "Binary Edge Weight Model"
+title: "Binary Edge Weight Model with INLA"
 output:
   rmarkdown::github_document
 ---
