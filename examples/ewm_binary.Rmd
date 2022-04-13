@@ -72,7 +72,6 @@ model_data <- list(
   location_ids=df$location_id, # Vector of location IDs corresponding to each observation
   event=df$event # Vector of binary values (0/1, presence/absence) corresponding to each observation
 )
-model_data
 ```
 
 # Fitting the model

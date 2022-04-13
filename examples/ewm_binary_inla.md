@@ -40,19 +40,19 @@ place, which may be relevant if location is likely to impact the
 visibility of social events.
 
 ``` r
-set.seed(123)
+set.seed(1)
 data <- simulate_binary()
 df <- data$df
 head(df)
 ```
 
     ##   node_1 node_2   type_1   type_2 event location
-    ## 1    Rey   Leia Lifeform Lifeform     1        A
-    ## 2    Rey   Leia Lifeform Lifeform     1        F
-    ## 3    Rey   Leia Lifeform Lifeform     1        A
-    ## 4    Rey   Leia Lifeform Lifeform     1        B
-    ## 5    Rey   Leia Lifeform Lifeform     0        E
-    ## 6    Rey   Leia Lifeform Lifeform     1        D
+    ## 1    Rey   Leia Lifeform Lifeform     1        B
+    ## 2    Rey   Leia Lifeform Lifeform     1        C
+    ## 3    Rey   Leia Lifeform Lifeform     1        D
+    ## 4    Rey   Leia Lifeform Lifeform     1        C
+    ## 5    Rey   Leia Lifeform Lifeform     1        C
+    ## 6    Rey   Leia Lifeform Lifeform     1        B
 
 # Preparing the data
 
@@ -74,12 +74,12 @@ head(df)
     ## # Groups:   node_1, node_2 [1]
     ##   node_1 node_2 type_1   type_2   event location dyad_id location_id
     ##   <fct>  <fct>  <fct>    <fct>    <int> <fct>      <int>       <int>
-    ## 1 Rey    Leia   Lifeform Lifeform     1 A              1           1
-    ## 2 Rey    Leia   Lifeform Lifeform     1 F              1           6
-    ## 3 Rey    Leia   Lifeform Lifeform     1 A              1           1
-    ## 4 Rey    Leia   Lifeform Lifeform     1 B              1           2
-    ## 5 Rey    Leia   Lifeform Lifeform     0 E              1           5
-    ## 6 Rey    Leia   Lifeform Lifeform     1 D              1           4
+    ## 1 Rey    Leia   Lifeform Lifeform     1 B              1           2
+    ## 2 Rey    Leia   Lifeform Lifeform     1 C              1           3
+    ## 3 Rey    Leia   Lifeform Lifeform     1 D              1           4
+    ## 4 Rey    Leia   Lifeform Lifeform     1 C              1           3
+    ## 5 Rey    Leia   Lifeform Lifeform     1 C              1           3
+    ## 6 Rey    Leia   Lifeform Lifeform     1 B              1           2
 
 ``` r
 df_agg <- df %>%
@@ -96,51 +96,49 @@ df_agg[df_agg$node_2_id <= 4, ]$node_2_type <- "l"
 df_agg[df_agg$node_2_id >= 5, ]$node_2_type <- "d"
 df_agg$dyad_type <- factor(paste0(df_agg$node_1_type, df_agg$node_2_type), levels=c("ll", "ld", "dd"))
 
+num_obs <- nrow(df)
+num_dyads <- nrow(df_agg)
+
 head(df_agg)
 ```
 
     ## # A tibble: 6 × 11
     ## # Groups:   node_1 [1]
-    ##   node_1 node_2  event_count dyad_id total_obs node_1_id node_2_id   sri
-    ##   <fct>  <fct>         <int>   <int>     <int>     <int>     <int> <dbl>
-    ## 1 Rey    Leia             29       1        31         1         2 0.935
-    ## 2 Rey    Obi-Wan          14       2        14         1         3 1    
-    ## 3 Rey    Luke             49       3        49         1         4 1    
-    ## 4 Rey    C-3PO            23       4        41         1         5 0.561
-    ## 5 Rey    BB-8             13       5        19         1         6 0.684
-    ## 6 Rey    R2-D2            22       6        49         1         7 0.449
+    ##   node_1 node_2  event_count dyad_id total_obs node_1_id node_2_id    sri
+    ##   <fct>  <fct>         <int>   <int>     <int>     <int>     <int>  <dbl>
+    ## 1 Rey    Leia             26       1        26         1         2 1     
+    ## 2 Rey    Obi-Wan          45       2        48         1         3 0.938 
+    ## 3 Rey    Luke             40       3        40         1         4 1     
+    ## 4 Rey    C-3PO            22       4        39         1         5 0.564 
+    ## 5 Rey    BB-8              1       5        24         1         6 0.0417
+    ## 6 Rey    R2-D2             7       6        49         1         7 0.143 
     ## # … with 3 more variables: node_1_type <chr>, node_2_type <chr>,
     ## #   dyad_type <fct>
 
-Now we have all of the data in the right format for fitting the model,
-we just need to put it into a list object. The data required by the
-statistical model is defined in `binary_model.stan`.
-
-``` r
-num_obs <- nrow(df)
-num_dyads <- nrow(df_agg)
-```
-
 # Fitting the model
 
-To fit the model, we first must compile it and load it into memory using
-the function `stan_model()` and providing the filepath to the model. The
-working directory will need to be set to the directory of the model for
-this to work properly.
+To fit the model using INLA, we need to define it in the form of a GLM.
+BISoN models don’t need an intercept (though they can be included in
+modelling relative effects) so the intercept is excluded from the model
+by adding a preceding `0` to the formula. Dyad ID is modelled (as a
+factor) as a fixed effect, which will become our edge weight estimates,
+and location is modelled as a random effect (also known as a varying
+intercept). Because this model is for binary (presence/absence) data,
+the GLM equivalent family is the binomial family. The model can be built
+using the code below:
 
 ``` r
 # Prepare dataframe by assigning factors
-df_inla <- df
-df_inla$dyad_id <- as.factor(df$dyad_id)
+df$dyad_id <- as.factor(df$dyad_id)
 
 # Set priors to match Stan model
-prior.fixed <- list(mean=0, prec=1)
+prior.fixed <- list(mean=0, prec=0.65)
 prior.random <- list(prec=list(prior="normal", param=c(0, 1)))
 
 # Fit the INLA model
 fit_edge <- inla(event ~ 0 + dyad_id + f(location, model="iid", hyper=prior.random), 
                  family="binomial", 
-                 data=df_inla,
+                 data=df,
                  control.fixed=prior.fixed,
                  control.compute=list(config = TRUE)
 )
@@ -148,12 +146,16 @@ fit_edge <- inla(event ~ 0 + dyad_id + f(location, model="iid", hyper=prior.rand
 
 # Posterior predictive checks
 
+To check the model has captured important aspects of the data well, we
+can run a predictive check of the predictions of the model against the
+observed event counts using the following code.
+
 ``` r
 # Extract samples (including predictor values) from posterior of INLA model
 inla_samples <- inla.posterior.sample(20, fit_edge)
 
 # Plot the density of the observed event counts
-plot(density(df_agg$event_count), main="", xlab="Dyadic event counts")
+plot(density(df_agg$event_count), main="", xlab="Dyadic event counts", ylim=c(0, 0.025))
 
 # Plot the densities of the predicted event counts, repeat for multiple samples
 df_copy <- df
@@ -167,8 +169,9 @@ for (i in 1:length(inla_samples)) {
 }
 ```
 
-![](ewm_binary_inla_files/figure-gfm/unnamed-chunk-7-1.png)<!-- --> This
-plot shows that the observed data falls well within the predicted
+![](ewm_binary_inla_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
+
+This plot shows that the observed data falls well within the predicted
 densities, and the predictions suggest the model has captured the main
 features of the data well. Now we can be reasonably confident that the
 model has fit correctly and describes the data well, so we can start to
@@ -195,7 +198,7 @@ edge_samples <- plogis(logit_edge_samples) # (0, 1) scale edge weights
 
 We can summarise the distribution over edge lists by calculating the
 credible intervals, indicating likely values for each edge. We’ll use
-the 89% credible interval in this example, but there’s no reason to
+the 95% credible interval in this example, but there’s no reason to
 choose this interval over any other. The distribution over edge lists
 can be summarised in the following code:
 
@@ -214,34 +217,34 @@ edge_list
 ```
 
     ##                   median  2.5% 97.5%
-    ## Rey <-> Leia       0.866 0.742 0.951
-    ## Rey <-> Obi-Wan    0.857 0.674 0.961
-    ## Rey <-> Luke       0.936 0.855 0.980
-    ## Rey <-> C-3PO      0.512 0.361 0.677
-    ## Rey <-> BB-8       0.626 0.398 0.801
-    ## Rey <-> R2-D2      0.428 0.283 0.590
-    ## Rey <-> D-O        0.112 0.044 0.231
-    ## Leia <-> Obi-Wan   0.920 0.804 0.976
-    ## Leia <-> Luke      0.928 0.833 0.975
-    ## Leia <-> C-3PO     0.216 0.086 0.419
-    ## Leia <-> BB-8      0.879 0.756 0.951
-    ## Leia <-> R2-D2     0.479 0.329 0.644
-    ## Leia <-> D-O       0.124 0.051 0.247
-    ## Obi-Wan <-> Luke   0.890 0.742 0.967
-    ## Obi-Wan <-> C-3PO  0.595 0.348 0.800
-    ## Obi-Wan <-> BB-8   0.886 0.713 0.966
-    ## Obi-Wan <-> R2-D2  0.775 0.585 0.901
-    ## Obi-Wan <-> D-O    0.251 0.140 0.397
-    ## Luke <-> C-3PO     0.722 0.549 0.849
-    ## Luke <-> BB-8      0.807 0.646 0.915
-    ## Luke <-> R2-D2     0.349 0.204 0.509
-    ## Luke <-> D-O       0.443 0.280 0.610
-    ## C-3PO <-> BB-8     0.132 0.048 0.280
-    ## C-3PO <-> R2-D2    0.067 0.023 0.165
-    ## C-3PO <-> D-O      0.121 0.035 0.290
-    ## BB-8 <-> R2-D2     0.147 0.052 0.341
-    ## BB-8 <-> D-O       0.103 0.040 0.226
-    ## R2-D2 <-> D-O      0.119 0.036 0.304
+    ## Rey <-> Leia       0.926 0.800 0.983
+    ## Rey <-> Obi-Wan    0.903 0.792 0.963
+    ## Rey <-> Luke       0.950 0.859 0.987
+    ## Rey <-> C-3PO      0.512 0.335 0.695
+    ## Rey <-> BB-8       0.102 0.028 0.239
+    ## Rey <-> R2-D2      0.149 0.071 0.284
+    ## Rey <-> D-O        0.673 0.494 0.824
+    ## Leia <-> Obi-Wan   0.930 0.819 0.978
+    ## Leia <-> Luke      0.956 0.878 0.988
+    ## Leia <-> C-3PO     0.840 0.685 0.927
+    ## Leia <-> BB-8      0.505 0.326 0.676
+    ## Leia <-> R2-D2     0.841 0.709 0.934
+    ## Leia <-> D-O       0.709 0.465 0.898
+    ## Obi-Wan <-> Luke   0.929 0.798 0.982
+    ## Obi-Wan <-> C-3PO  0.464 0.310 0.627
+    ## Obi-Wan <-> BB-8   0.095 0.032 0.215
+    ## Obi-Wan <-> R2-D2  0.544 0.348 0.718
+    ## Obi-Wan <-> D-O    0.515 0.338 0.703
+    ## Luke <-> C-3PO     0.870 0.716 0.951
+    ## Luke <-> BB-8      0.428 0.244 0.636
+    ## Luke <-> R2-D2     0.802 0.635 0.912
+    ## Luke <-> D-O       0.900 0.789 0.964
+    ## C-3PO <-> BB-8     0.049 0.014 0.127
+    ## C-3PO <-> R2-D2    0.036 0.010 0.096
+    ## C-3PO <-> D-O      0.070 0.023 0.160
+    ## BB-8 <-> R2-D2     0.110 0.022 0.335
+    ## BB-8 <-> D-O       0.094 0.018 0.274
+    ## R2-D2 <-> D-O      0.052 0.013 0.142
 
 In social network analysis, a more useful format for network data is
 usually adjacency matrices, rather than edge lists, so now we’ll convert
@@ -260,23 +263,23 @@ for (dyad_id in 1:num_dyads) {
 adj_tensor[, , 1] # Print the first sample of the posterior distribution over adjacency matrices
 ```
 
-    ##      [,1]      [,2]      [,3]      [,4]      [,5]      [,6]      [,7]
-    ## [1,]    0 0.8702168 0.6980937 0.9157696 0.5332480 0.6090042 0.4759449
-    ## [2,]    0 0.0000000 0.8841520 0.9536720 0.3174412 0.8647913 0.5255525
-    ## [3,]    0 0.0000000 0.0000000 0.8015942 0.4925951 0.9305242 0.8099209
-    ## [4,]    0 0.0000000 0.0000000 0.0000000 0.8608024 0.9128735 0.3771170
-    ## [5,]    0 0.0000000 0.0000000 0.0000000 0.0000000 0.1649326 0.1601290
-    ## [6,]    0 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.1666631
-    ## [7,]    0 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000
-    ## [8,]    0 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000 0.0000000
+    ##      [,1]      [,2]      [,3]      [,4]      [,5]       [,6]       [,7]
+    ## [1,]    0 0.9736384 0.7577386 0.9324685 0.4549407 0.10093065 0.14940112
+    ## [2,]    0 0.0000000 0.9075851 0.9553895 0.9138504 0.36576978 0.82164019
+    ## [3,]    0 0.0000000 0.0000000 0.8663992 0.4087943 0.03352137 0.55784635
+    ## [4,]    0 0.0000000 0.0000000 0.0000000 0.8552643 0.34936275 0.75996404
+    ## [5,]    0 0.0000000 0.0000000 0.0000000 0.0000000 0.02259332 0.02332923
+    ## [6,]    0 0.0000000 0.0000000 0.0000000 0.0000000 0.00000000 0.06249665
+    ## [7,]    0 0.0000000 0.0000000 0.0000000 0.0000000 0.00000000 0.00000000
+    ## [8,]    0 0.0000000 0.0000000 0.0000000 0.0000000 0.00000000 0.00000000
     ##            [,8]
-    ## [1,] 0.08649457
-    ## [2,] 0.09495153
-    ## [3,] 0.30110311
-    ## [4,] 0.34130154
-    ## [5,] 0.24017769
-    ## [6,] 0.15644758
-    ## [7,] 0.19561336
+    ## [1,] 0.64072892
+    ## [2,] 0.67288747
+    ## [3,] 0.58900875
+    ## [4,] 0.92486966
+    ## [5,] 0.06968953
+    ## [6,] 0.06136457
+    ## [7,] 0.04762363
     ## [8,] 0.00000000
 
 The adjacency matrix above corresponds to a single draw of the posterior
@@ -324,7 +327,7 @@ plot(g_mid, edge.width=20 * E(g_range)$weight, edge.color=rgb(0, 0, 0, 0.25),
      vertex.label.dist=4, vertex.label.color="black", layout=coords, add=TRUE)
 ```
 
-![](ewm_binary_inla_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->
+![](ewm_binary_inla_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
 
 This plot can be extended in multiple ways, for example by thresholding
 low edge weights to visualise the network more tidily, or by adding
@@ -363,4 +366,4 @@ for (i in 2:21) {
 abline(a=0, b=1)
 ```
 
-![](ewm_binary_inla_files/figure-gfm/unnamed-chunk-13-1.png)<!-- -->
+![](ewm_binary_inla_files/figure-gfm/unnamed-chunk-12-1.png)<!-- -->

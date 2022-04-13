@@ -25,7 +25,7 @@ model {
   beta_loc ~ normal(0, 1);
 
   // Priors
-  logit_edge ~ normal(0, 1);
+  logit_edge ~ normal(0, 1 + 0);
   loc_sigma ~ normal(0, 1);
 }
 

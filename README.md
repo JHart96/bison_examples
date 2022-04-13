@@ -19,7 +19,7 @@ This is a non-exhaustive list of some example BISoN models and auxiliary scripts
 * [Count Edge Weight Model (Stan)](examples/ewm_count.md)
 * [Duration Edge Weight Model (Stan)](examples/ewm_duration.md)
 * [Binary Edge Weight Model (INLA)](examples/ewm_binary_inla.md)
-* ~~[Count Edge Weight Model (INLA)]()~~
+* [Count Edge Weight Model (INLA)](examples/ewm_count_inla.md)
 * ~~[Group Edge Weight Model (INLA)]()~~
 * ~~[Binary Directed Edge Weight Model (Stan)]()~~
 * ~~[Binary Edge Weight Model with Partial Pooling (Stan)]()~~
@@ -37,4 +37,7 @@ This is a non-exhaustive list of some example BISoN models and auxiliary scripts
 
 ## R Package (In Development)
 
-An R package (bisonR) is currently in development and will be available soon.
+An R package (bisonR) is currently in development and will be available soon. Follow [@jordan_hart_96](https://twitter.com/jordan_hart_96) on Twitter to keep up to date with the latest developments.
+
+[![Twitter](https://img.shields.io/twitter/url/https/twitter.com/jordan_hart_96.svg?style=social&label=Follow%20%40jordan_hart_96)](https://twitter.com/jordan_hart_96)
+

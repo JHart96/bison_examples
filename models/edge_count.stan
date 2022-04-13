@@ -24,7 +24,7 @@ model {
   // Priors
   beta_location ~ normal(0, sigma_loc);
   sigma_loc ~ normal(0, 1);
-  log_edge ~ normal(1, 1);
+  log_edge ~ normal(0, 1);
 }
 
 generated quantities {

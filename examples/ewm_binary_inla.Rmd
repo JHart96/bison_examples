@@ -58,24 +58,19 @@ df_agg[df_agg$node_2_id <= 4, ]$node_2_type <- "l"
 df_agg[df_agg$node_2_id >= 5, ]$node_2_type <- "d"
 df_agg$dyad_type <- factor(paste0(df_agg$node_1_type, df_agg$node_2_type), levels=c("ll", "ld", "dd"))
 
-head(df_agg)
-```
-
-Now we have all of the data in the right format for fitting the model, we just need to put it into a list object. The data required by the statistical model is defined in `binary_model.stan`.
-
-```{r}
 num_obs <- nrow(df)
 num_dyads <- nrow(df_agg)
+
+head(df_agg)
 ```
 
 # Fitting the model
 
-To fit the model, we first must compile it and load it into memory using the function `stan_model()` and providing the filepath to the model. The working directory will need to be set to the directory of the model for this to work properly.
+To fit the model using INLA, we need to define it in the form of a GLM. BISoN models don't need an intercept (though they can be included in modelling relative effects) so the intercept is excluded from the model by adding a preceding `0` to the formula. Dyad ID is modelled (as a factor) as a fixed effect, which will become our edge weight estimates, and location is modelled as a random effect (also known as a varying intercept). Because this model is for binary (presence/absence) data, the GLM equivalent family is the binomial family. The model can be built using the code below:
 
 ```{r, warning=FALSE, message=FALSE, results='hide'}
 # Prepare dataframe by assigning factors
-df_inla <- df
-df_inla$dyad_id <- as.factor(df$dyad_id)
+df$dyad_id <- as.factor(df$dyad_id)
 
 # Set priors to match Stan model
 prior.fixed <- list(mean=0, prec=1)
@@ -84,7 +79,7 @@ prior.random <- list(prec=list(prior="normal", param=c(0, 1)))
 # Fit the INLA model
 fit_edge <- inla(event ~ 0 + dyad_id + f(location, model="iid", hyper=prior.random), 
                  family="binomial", 
-                 data=df_inla,
+                 data=df,
                  control.fixed=prior.fixed,
                  control.compute=list(config = TRUE)
 )
@@ -92,12 +87,14 @@ fit_edge <- inla(event ~ 0 + dyad_id + f(location, model="iid", hyper=prior.rand
 
 # Posterior predictive checks
 
+To check the model has captured important aspects of the data well, we can run a predictive check of the predictions of the model against the observed event counts using the following code.
+
 ```{r, message=FALSE}
 # Extract samples (including predictor values) from posterior of INLA model
 inla_samples <- inla.posterior.sample(20, fit_edge)
 
 # Plot the density of the observed event counts
-plot(density(df_agg$event_count), main="", xlab="Dyadic event counts")
+plot(density(df_agg$event_count), main="", xlab="Dyadic event counts", ylim=c(0, 0.025))
 
 # Plot the densities of the predicted event counts, repeat for multiple samples
 df_copy <- df
@@ -110,6 +107,7 @@ for (i in 1:length(inla_samples)) {
   lines(density(df_agg_copy$event_count), col=rgb(0, 0, 1, 0.5))
 }
 ```
+
 This plot shows that the observed data falls well within the predicted densities, and the predictions suggest the model has captured the main features of the data well. Now we can be reasonably confident that the model has fit correctly and describes the data well, so we can start to make inferences from the model.
 
 # Extracting edge weights
@@ -127,7 +125,7 @@ for (i in 1:length(inla_samples)) {
 edge_samples <- plogis(logit_edge_samples) # (0, 1) scale edge weights
 ```
 
-We can summarise the distribution over edge lists by calculating the credible intervals, indicating likely values for each edge. We'll use the 89% credible interval in this example, but there's no reason to choose this interval over any other. The distribution over edge lists can be summarised in the following code:
+We can summarise the distribution over edge lists by calculating the credible intervals, indicating likely values for each edge. We'll use the 95% credible interval in this example, but there's no reason to choose this interval over any other. The distribution over edge lists can be summarised in the following code:
 
 ```{r}
 dyad_name <- do.call(paste, c(df_agg[c("node_1", "node_2")], sep=" <-> "))
