@@ -1,0 +1,134 @@
+---
+title: "Binary Edge Weight Model for Group Data with INLA"
+output:
+  rmarkdown::github_document
+---
+
+Group-based data, sometimes called Gambit-of-the-Group, where observations of groupings of individuals is assumed to represent social events between all members of the grouping, are a common form of behavioural data in animal social network analysis. These data can be challenging to analyse for various reasons, but a key consideration is the non-independence of sightings of dyads within the same grouping. We can model this non-independence of groupings in BISoN by including a varying intercept (random effect) term in the model, but it requires structuring the data frame in a long format, so that each row corresponds to each possible dyad in a sighting, including dyads where one of the individuals was not present in the grouping. In many empirical datasets this can generate large data frames that conventional MCMC methods will struggle to fit in a reasonable time. Fortunately INLA is much faster and an appropriate approximation for BISoN models of group data. In this example we'll use INLA to fit a BISoN model to simulated group data.
+
+*WARNING: Group-by-individual matrices with especially large numbers of individuals or observations will generate very large dataframes that may be difficult to work with and fit. This is an area for future development we are currently working on. Until then, aggregated models might be a useful compromise that will at least model some of the uncertainty around edge weights. *
+
+First load in libraries and the simulation script to generate group-based data.
+
+```{r}
+library(dplyr)
+library(INLA)
+library(igraph)
+
+source("../scripts/simulations.R")
+```
+
+## Simulate some data
+
+Now simulate some group-based data that has already been transformed into long format from group-by-individual matrices. Check out the `convert_gbi.Rmd` example in the repository for more details on how this can be done.
+
+```{r}
+set.seed(123)
+df <- simulate_group()
+head(df)
+```
+
+## Prepare dataframe
+
+Add dyad IDs to the dataframe and convert observation (or group) IDs to integers
+
+```{r}
+df <- df %>%
+  group_by(node_1, node_2) %>%
+  mutate(dyad_id=cur_group_id()) %>%
+  mutate(obs_id=as.integer(obs_id))
+head(df)
+```
+
+Prepare aggregated version of the matrix solely for post-processing purposes, as it isn't needed for model fitting.
+
+```{r}
+df_agg <- df %>%
+  group_by(node_1, node_2) %>%
+  summarise(event_count=sum(social_event), dyad_id=cur_group_id()) %>%
+  mutate(node_1_id=as.integer(node_1), node_2_id=as.integer(node_2))
+head(df_agg)
+```
+
+## Fit model
+
+Now we need to define and fit the model in formula notation for INLA. The model definition is similar to the binary edge weight models fitted in other examples, but this time uses a random effect over observation ID (corresponding to grouping instances) to account for non-independence due to shared groupings. This can be done using the following code:
+
+```{r}
+# Prepare dataframe by assigning factors
+df$dyad_id <- as.factor(df$dyad_id)
+df$obs_id <- as.factor(df$obs_id)
+
+# Set priors to match Stan model
+prior.fixed <- list(mean=0, prec=10)
+prior.random <- list(prec=list(prior="normal", param=c(0, 1)))
+
+# Fit the INLA model
+fit_edge <- inla(social_event ~ 0 + dyad_id + f(obs_id, model="iid", hyper=prior.random), 
+                 family="binomial", 
+                 data=df,
+                 control.fixed=prior.fixed,
+                 control.compute=list(config = TRUE)
+)
+```
+
+We can now perform posterior predictive checks by comparing the density of the observed event counts to the density of predicted event counts from the model.
+
+```{r}
+# Extract samples (including predictor values) from posterior of INLA model
+inla_samples <- inla.posterior.sample(20, fit_edge)
+
+# Plot the density of the observed event counts
+plot(density(df_agg$event_count), main="", xlab="Dyadic event counts", ylim=c(0, 0.2))
+
+# Plot the densities of the predicted event counts, repeat for multiple samples
+df_copy <- df
+for (i in 1:length(inla_samples)) {
+  j <- sample(1:length(inla_samples), size=1)
+  df_copy$event <- rbinom(nrow(df), 1, plogis(head(inla_samples[[j]]$latent, nrow(df))))
+  df_agg_copy <- df_copy %>% 
+    group_by(node_1, node_2) %>%
+    summarise(event_count=sum(event))
+  lines(density(df_agg_copy$event_count), col=rgb(0, 0, 1, 0.5))
+}
+```
+
+This plot shows that the observed data falls well within the predicted densities, and the predictions suggest the model has captured the main features of the data well. Now we can be reasonably confident that the model has fit correctly and describes the data well, so we can start to make inferences from the model.
+
+# Extracting edge weights
+
+The main purpose of this part of the framework is to estimate edge weights of dyads. We can access these using the `logit_p` quantity. This will give a distribution of logit-scale edge weights for each dyad, akin to an edge list. We'll apply the logistic function `plogis` to get the edge weights back to their original scale:
+
+```{r}
+num_samples <- 1000
+inla_samples <- inla.posterior.sample(num_samples, fit_edge)
+logit_edge_samples <- matrix(0, length(inla_samples), 28)
+for (i in 1:length(inla_samples)) {
+  logit_edge_samples[i, ] <- tail(inla_samples[[i]]$latent, 28)
+}
+edge_samples <- plogis(logit_edge_samples) # (0, 1) scale edge weights
+```
+
+We can summarise the distribution over edge lists by calculating the credible intervals, indicating likely values for each edge. We'll use the 95% credible interval in this example, but there's no reason to choose this interval over any other. The distribution over edge lists can be summarised in the following code:
+
+```{r}
+dyad_name <- do.call(paste, c(df_agg[c("node_1", "node_2")], sep=" <-> "))
+edge_lower <- apply(edge_samples, 2, function(x) quantile(x, probs=0.025))
+edge_upper <- apply(edge_samples, 2, function(x) quantile(x, probs=0.975))
+edge_median <- apply(edge_samples, 2, function(x) quantile(x, probs=0.5))
+edge_list <- cbind(
+  "median"=round(edge_median, 3), 
+  "2.5%"=round(edge_lower, 3), 
+  "97.5%"=round(edge_upper, 3)
+)
+rownames(edge_list) <- dyad_name
+edge_list
+```
+
+# Next steps
+
+Now the posterior edge weights can be used in any downstream analyses and visualisations, as they would be used for any of the other BISoN models. Check out the Github repository for more examples.
+
+
+
+

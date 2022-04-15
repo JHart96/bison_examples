@@ -20,9 +20,8 @@ This is a non-exhaustive list of some example BISoN models and auxiliary scripts
 * [Duration Edge Weight Model (Stan)](examples/ewm_duration.md)
 * [Binary Edge Weight Model (INLA)](examples/ewm_binary_inla.md)
 * [Count Edge Weight Model (INLA)](examples/ewm_count_inla.md)
-* ~~[Group Edge Weight Model (INLA)]()~~
-* ~~[Binary Directed Edge Weight Model (Stan)]()~~
-* ~~[Binary Edge Weight Model with Partial Pooling (Stan)]()~~
+* [Group Edge Weight Model (INLA)](examples/ewm_group_inla.md)
+* [Binary Edge Weight Model with Partial Pooling (Stan)](models/pooled_count_model.stan)
 
 ### Social Network Analysis
 * [Dyadic Regression (Stan)](examples/dyadic_regression_stan.md)
@@ -34,6 +33,12 @@ This is a non-exhaustive list of some example BISoN models and auxiliary scripts
 ### Data processing and diagnostics
 * ~~[Prior Predictive Checks]()~~
 * [Group Data Conversion](examples/convert_gbi.md)
+
+### Coming soon
+* Binary Directed Edge Weight Model (Stan)
+* Prior Predictive Checks
+* Posterior Predictive Checks
+
 
 ## R Package (In Development)
 

@@ -57,7 +57,6 @@ df <- df %>%
   group_by(node_1, node_2) %>%
   mutate(dyad_id=cur_group_id()) %>%
   mutate(obs_id=as.integer(obs_id))
-head(df)
 ```
 
 Prepare data list for model.

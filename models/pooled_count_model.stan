@@ -1,3 +1,12 @@
+// An example of a pooled BISoN count model accounting for visibilites due to location.
+// Partial pooling is applied to all edge weights by applying a shared adaptive prior over `log_p`.
+// If edge weights can be considered as belonging to an underlying univariate distribution, this partial
+// pooling can increase precision and reduce uncertainty around edge weight estimates.
+
+// Partial pooling can also be applied conditionally based on known dyad types, for example if some dyads
+// are known to be, say, siblings, they may share an adaptive prior, whereas unrelated dyads may share a different
+// adaptive prior.
+
 data {
   int<lower=0> N; // Number of data points
   int<lower=0> M; // Number of dyads
