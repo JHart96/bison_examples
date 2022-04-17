@@ -28,7 +28,7 @@ This is a non-exhaustive list of some example BISoN models and auxiliary scripts
 * [Nodal Regression (Stan)](examples/nodal_regression_stan.md)
 * ~~[Non-random Edge Weight Tests (Stan)]()~~
 * [Dyadic Regression (Metropolis)](examples/dyadic_regression_metropolis.md)
-* ~~[Nodal Regression (Metropolis)]()~~
+* [Nodal Regression (Metropolis)](examples/nodal_regression_metropolis.md)
 
 ### Data processing and diagnostics
 * ~~[Prior Predictive Checks]()~~
