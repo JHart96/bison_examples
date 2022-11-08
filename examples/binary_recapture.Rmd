@@ -13,7 +13,7 @@ This example covers fitting an edge weight model to presence/absence (binary) da
 First of all we'll load in Rstan for model fitting in Stan, dplyr for handling the data, and igraph for network plotting and computing network centrality. We also load in a custom R file: "simulations.R" to generate synthetic data for this example..
 
 ```{r, results='hide', message=FALSE}
-library(rstan)
+library(cmdstanr)
 library(dplyr)
 library(igraph)
 
@@ -25,7 +25,7 @@ source("../scripts/simulations.R")
 Now we will simulate data using the `simulate_binary()` function. The rows of the resulting dataframe describe observations at the dyadic level between nodes. In this dataframe, `event` denotes whether or not an undirected social event was observed in this observation period. The exact definition of observation period will depend on the study, but is commonly a sampling period where at least one of the members of the dyad was observed. This can also be a sampling period where both members of the dyad were observed, and the distinction will affect the interpretation of edge weights. See the paper for further discussion on this. `location` denotes the location at which the observation took place, which may be relevant if location is likely to impact the visibility of social events.
 
 ```{r}
-set.seed(123)
+# set.seed(123)
 data <- simulate_binary()
 df <- data$df
 head(df)
@@ -39,38 +39,21 @@ Computationally it's easier to work with dyad IDs rather than pairs of nodes in 
 df <- df %>%
   group_by(node_1, node_2) %>%
   mutate(dyad_id=cur_group_id()) %>%
-  mutate(location_id=as.integer(location))
+  select(node_1, node_2, dyad_id, event, edge_weight_true) %>%
+  mutate(event_true=event, edge_weight_true=as.numeric(edge_weight_true))
+
+prob_detect <- 0.6^2
+df$event_obs <- rbinom(nrow(df), 1, prob_detect) * df$event_true
 head(df)
 ```
-
-```{r, message=FALSE}
-df_agg <- df %>%
-  group_by(node_1, node_2) %>%
-  summarise(event_count=sum(event), dyad_id=cur_group_id(), total_obs=n()) %>%
-  mutate(node_1_id=as.integer(node_1), node_2_id=as.integer(node_2)) %>%
-  mutate(sri=event_count/total_obs)
-
-df_agg$node_1_type <- ""
-df_agg$node_2_type <- ""
-df_agg[df_agg$node_1_id <= 4, ]$node_1_type <- "l"
-df_agg[df_agg$node_1_id >= 5, ]$node_1_type <- "d"
-df_agg[df_agg$node_2_id <= 4, ]$node_2_type <- "l"
-df_agg[df_agg$node_2_id >= 5, ]$node_2_type <- "d"
-df_agg$dyad_type <- factor(paste0(df_agg$node_1_type, df_agg$node_2_type), levels=c("ll", "ld", "dd"))
-
-head(df_agg)
-```
-
 Now we have all of the data in the right format for fitting the model, we just need to put it into a list object. The data required by the statistical model is defined in `binary_model.stan`.
 
 ```{r}
 model_data <- list(
-  num_obs=nrow(df), # Number of observations
-  num_dyads=nrow(df_agg), # Number of dyads
-  num_locations=6, # Number of locations
+  N=nrow(df), # Number of observations
+  M=max(df$dyad_id), # Number of dyads
   dyad_ids=df$dyad_id, # Vector of dyad IDs corresponding to each observation
-  location_ids=df$location_id, # Vector of location IDs corresponding to each observation
-  event=df$event # Vector of binary values (0/1, presence/absence) corresponding to each observation
+  event=df$event_obs # Vector of binary values (0/1, presence/absence) corresponding to each observation
 )
 ```
 
@@ -79,14 +62,29 @@ model_data <- list(
 The main purpose of this part of the framework is to estimate edge weights of dyads. To fit the model, we first must compile it and load it into memory using the function `stan_model()` and providing the filepath to the model. The working directory will need to be set to the directory of the model for this to work properly.
 
 ```{r, warning=FALSE, message=FALSE, results='hide'}
-edge_model <- stan_model("../models/edge_binary.stan")
+edge_model <- cmdstan_model("../models/binary_recapture.stan")
 ```
 
 Compiling the model may take a minute or two, but once this is done, the model can be fit using `sampling()`. The argument `cores` sets the number of CPU cores to be used for fitting the model, if your computer has 4 or more cores, it's worth setting this to 4.
 
 ```{r}
-fit_edge <- sampling(edge_model, model_data, cores=4)
-summary(fit_edge)
+fit_edge <- edge_model$sample(model_data, parallel_chains=4)
+fit_edge$summary()
+```
+
+```{r}
+df_agg <- df %>%
+  group_by(dyad_id) %>%
+  summarise(edge_weight_true=mean(edge_weight_true))
+```
+
+```{r}
+plot(df_agg$edge_weight_true, fit_edge$draws("edge_weight", format="matrix")[sample(1:4000, 1), ])
+abline(a=0, b=1)
+```
+
+```{r}
+fit_edge$summary("prob_detect")
 ```
 
 # Model checking

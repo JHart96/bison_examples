@@ -80,11 +80,12 @@ Compiling the model may take a minute or two, but once this is done, the model c
 
 ```{r}
 fit_edge <- sampling(edge_model, model_data, cores=4)
+summary(fit_edge)
 ```
 
 # Model checking
 
-The R-hat values provided by Stan indicate how well the chains have converged, with values very close to 1.00 being ideal. Values diverging from 1.00 indicate that the posterior samples may be very unreliable, and shouldn't be trusted. The chains can be plotted using Rstan's `traceplot` function to verify this visually:
+The R-hat values provided by Stan indicate how well the chains have converged, with values very close to 1.00 being ideal. Values diverging too far from 1.00 indicate that the posterior samples may be very unreliable, and shouldn't be trusted. The chains can be plotted using Rstan's `traceplot` function to verify this visually:
 
 ```{r, message=FALSE}
 traceplot(fit_edge)
@@ -100,7 +101,7 @@ event_pred <- rstan::extract(fit_edge)$event_pred
 num_iterations <- dim(event_pred)[1]
 
 # Plot the density of the observed event counts
-plot(density(df_agg$event_count_total), main="", xlab="Dyadic event counts", ylim=c(0, 0.007))
+plot(density(df_agg$event_count_total), main="", xlab="Dyadic event counts", ylim=c(0, 0.01))
 
 # Plot the densities of the predicted event counts, repeat for 10 samples
 df_copy <- df
@@ -117,14 +118,14 @@ This plot shows that the observed data falls well within the predicted densities
 
 # Extracting edge weights
 
-The main purpose of this part of the framework is to estimate edge weights of dyads. We can access these using the `logit_p` quantity. This will give a distribution of logit-scale edge weights for each dyad, akin to an edge list. We'll apply the logistic function `plogis` to get the edge weights back to their original scale:
+The main purpose of this part of the framework is to estimate edge weights of dyads. We can access these using the `log_p` quantity. This will give a distribution of log-scale edge weights for each dyad, akin to an edge list. We'll apply the exponential function `exp` to get the edge weights back to their original scale:
 
 ```{r}
 log_edge_samples <- rstan::extract(fit_edge)$log_edge # Logit scale edge weights
 edge_samples <- exp(log_edge_samples) # (0, 1) scale edge weights
 ```
 
-We can summarise the distribution over edge lists by calculating the credible intervals, indicating likely values for each edge. We'll use the 89% credible interval in this example, but there's no reason to choose this interval over any other. The distribution over edge lists can be summarised in the following code:
+We can summarise the distribution over edge lists by calculating the credible intervals, indicating likely values for each edge. We'll use the 95% credible interval in this example, but there's no reason to choose this interval over any other. The distribution over edge lists can be summarised in the following code:
 
 ```{r}
 dyad_name <- do.call(paste, c(df_agg[c("node_1", "node_2")], sep=" <-> "))

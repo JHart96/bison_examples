@@ -11,6 +11,7 @@ This is a short notebook describing how to convert group-by-individual matrices 
 ```{r}
 library(dplyr)
 library(rstan)
+library(INLA)
 ```
 
 ## Simulate some data
@@ -130,7 +131,7 @@ logit_p_samples
 
 ```{r}
 p_samples <- plogis(logit_p_samples)
-adj_tensor <- array(0, c(8, 8, num_iterations))
+adj_tensor <- array(0, c(8, 8, num_samples))
 for (dyad_id in 1:model_data$M) {
   dyad_row <- df_agg[df_agg$dyad_id == dyad_id, ]
   adj_tensor[dyad_row$node_1_id, dyad_row$node_2_id, ] <- p_samples[, dyad_id]

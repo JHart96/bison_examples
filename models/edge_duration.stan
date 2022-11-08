@@ -29,7 +29,7 @@ transformed parameters {
 
 model {
   // Main model
-  durations ~ exponential(lambda[dyad_ids] ./ inv_logit(logit_pn));
+  durations ~ exponential(lambda[dyad_ids] ./ inv_logit(logit_pn)); // T[, max_duration]; // Uncomment to truncate the exponential.
   num_events ~ poisson(lambda .* total_obs_time);
 
   // Priors

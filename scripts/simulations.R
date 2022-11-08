@@ -23,8 +23,8 @@ simulate_binary <- function() {
 
   beta_loc <- rnorm(6, 0, 1)
 
-  df <- data.frame(matrix(nrow=0, ncol=6))
-  colnames(df) <- c("node_1", "node_2", "type_1", "type_2", "event", "location")
+  df <- data.frame(matrix(nrow=0, ncol=7))
+  colnames(df) <- c("node_1", "node_2", "type_1", "type_2", "event", "location", "edge_weight_true")
   for (i in 1:n) {
     for (j in 1:n) {
       if (i < j) {
@@ -33,7 +33,7 @@ simulate_binary <- function() {
           # At least one of them was visible, did they associate?
           logit_p <- qlogis(p[i, j])
           logit_pn <- logit_p + beta_loc[location_id]
-          df[nrow(df) + 1, ] <- c(node_names[i], node_names[j], node_types[i], node_types[j], rbinom(1, 1, plogis(logit_pn)), location_names[location_id])
+          df[nrow(df) + 1, ] <- c(node_names[i], node_names[j], node_types[i], node_types[j], rbinom(1, 1, plogis(logit_pn)), location_names[location_id], p[i, j])
         }
       }
     }

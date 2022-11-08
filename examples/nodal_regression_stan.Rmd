@@ -83,7 +83,8 @@ The posterior centralities can now be characterised by the multivariate normal d
 ```{r}
 plot(centrality_samples_std[, 1], centrality_samples_std[, 2])
 ```
-This joint distribution contains important information that we would ideally like to include in the model. The multivariate normal will allow us to do this. Parameterising the multivariate normal approximation is a relatively simple process and can be done by calculating the sample mean and sample covariance matrix of the posterior centrality samples:
+
+The joint distribution contains important information that we would ideally like to include in the model. The multivariate normal will allow us to do this. Parameterising the multivariate normal approximation is a relatively simple process and can be done by calculating the sample mean and sample covariance matrix of the posterior centrality samples:
 
 ```{r}
 centrality_mu <- apply(centrality_samples_std, 2, mean)
@@ -140,7 +141,8 @@ for (i in 1:100) {
   lines(density(MASS::mvrnorm(1, mu, sigma)), col=rgb(0, 0, 1, 0.25))
 }
 ```
-Almost all of the expected (black) densities fall within the range expected from the predicted (blue) densities. The distribution of centralities appears to have been captured reasonably by the regression model, but the regression model indicates a lot of variance around predicted values, indicating potential scope for improving the regression model. There are many other types of diagnostic check that could be carried out, but we won't go into detail here. See the github repository page for more information.
+
+Almost all of the expected (black) densities fall within the range expected from the predicted (blue) densities. The distribution of centralities appears to have been captured reasonably by the regression model, but the regression model indicates a lot of variance around predicted values, indicating potential scope for improving the regression model. There are many other types of diagnostic check that could be carried out, but we won't go into detail here. A useful way to think about this kind of plot is to see whether, if one of the black lines had been blue, it would be possible to distinguish it from the rest of the blue lines. This should indicate whether the predicted densities are markedly different to what is expected. See the github repository page for more information.
 
 # Interpreting the model
 
